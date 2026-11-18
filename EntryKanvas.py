@@ -59,10 +59,7 @@ FIELD_LABELS = {
     "direct_selling": "Direct Selling",
 }
 
-st.set_page_config(
-    page_title="Form Entry Laporan Kanvas", page_icon="📋", layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="Form Entry Laporan Kanvas", page_icon="📋", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""
 <style>
 .stApp { background-color: #f8fafc; }
@@ -91,10 +88,8 @@ def init_db():
             conn.execute("ALTER TABLE kanvas RENAME COLUMN pic TO nama_promotor")
             columns.remove("pic")
             columns.add("nama_promotor")
-        additions = {
-            "nama_promotor": "TEXT", "zona": "TEXT",
-            **{name: "INTEGER DEFAULT 0" for name in FIELD_LABELS if name not in ("canvas_plan", "omset_bungkus")},
-        }
+        additions = {"nama_promotor": "TEXT", "zona": "TEXT"}
+        additions.update({name: "INTEGER DEFAULT 0" for name in FIELD_LABELS if name not in ("canvas_plan", "omset_bungkus")})
         for name, kind in additions.items():
             if name not in columns:
                 conn.execute(f"ALTER TABLE kanvas ADD COLUMN {name} {kind}")
@@ -120,10 +115,7 @@ def load_data():
 def save_report(data):
     columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS, "waktu_submit"]
     with sqlite3.connect(DB_NAME) as conn:
-        conn.execute(
-            f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
-            [data[key] for key in columns],
-        )
+        conn.execute(f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})", [data[key] for key in columns])
     try:
         requests.post(WEBHOOK_URL, json=data, timeout=10).raise_for_status()
     except requests.RequestException:
@@ -135,20 +127,20 @@ def report_form():
     with st.form("form_laporan_kanvas"):
         c1, c2 = st.columns(2)
         with c1:
-            tanggal = st.date_input("Date", value=datetime.now(TZ_WIB).date())
-            promotor = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA))
+            date_value = st.date_input("Date", value=datetime.now(TZ_WIB).date())
+            promoter = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA))
             brand = st.selectbox("Brand", ["Djarum 76 Aksara"])
         with c2:
-            st.text_input("Zona (Otomatis)", value=PROMOTOR_ZONA[promotor], disabled=True)
+            st.text_input("Zona (Otomatis)", value=PROMOTOR_ZONA[promoter], disabled=True)
             canvas_plan = st.number_input("Canvas Plan", min_value=0, step=1, value=0)
             omset = st.number_input("Omset (bungkus)", min_value=0, step=1, value=0)
         st.markdown("#### 📊 Rincian Outlet")
-        keys = [key for key in FIELD_LABELS if key not in ("canvas_plan", "omset_bungkus")]
-        vals = {}
+        input_keys = [key for key in FIELD_LABELS if key not in ("canvas_plan", "omset_bungkus")]
+        inputs = {}
         cols = st.columns(3)
-        for i, key in enumerate(keys):
-            with cols[i % 3]:
-                vals[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=0, key=f"new_{key}")
+        for index, key in enumerate(input_keys):
+            with cols[index % 3]:
+                inputs[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=0, key=f"new_{key}")
         b1, b2 = st.columns(2)
         with b1:
             preview = st.form_submit_button("👁️ Lihat Preview", type="secondary")
@@ -156,10 +148,10 @@ def report_form():
             submit = st.form_submit_button("🚀 Langsung Kirim", type="primary")
     if preview or submit:
         report = {
-            "tanggal": tanggal.strftime("%Y-%m-%d"), "nama_promotor": promotor,
-            "zona": PROMOTOR_ZONA[promotor], "brand": brand,
+            "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
+            "zona": PROMOTOR_ZONA[promoter], "brand": brand,
             "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
-            **{key: int(value) for key, value in vals.items()},
+            **{key: int(value) for key, value in inputs.items()},
             "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
         }
         if preview:
@@ -206,31 +198,6 @@ def daily_status(df, today):
             st.success("🎉 Seluruh promotor telah melakukan entry laporan hari ini.")
 
 
-def require_admin():
-    if "admin_authenticated" not in st.session_state:
-        st.session_state.admin_authenticated = False
-    if st.session_state.admin_authenticated:
-        return True
-    st.info("⚠️ Area Admin dilindungi password. Silakan masukkan password untuk membuka.")
-    with st.form("form_password_admin"):
-        password = st.text_input("Password Admin:", type="password")
-        login = st.form_submit_button("🔓 Buka Area Admin", type="primary")
-    if login:
-        if password == ADMIN_PASSWORD:
-            st.session_state.admin_authenticated = True
-            st.rerun()
-        st.error("❌ Password salah!")
-    return False
-
-
-def admin_header():
-    c1, c2 = st.columns([3, 1])
-    c1.info("🔓 Area Admin & Rekap Terbuka")
-    if c2.button("🔒 Kunci Kembali"):
-        st.session_state.admin_authenticated = False
-        st.rerun()
-
-
 def recap_page(df):
     st.title("📈 Rekapitulasi Harian & Mingguan (Report Table)")
     if df.empty:
@@ -245,7 +212,7 @@ def recap_page(df):
         work = work[work["Zona"] == zone]
     years = sorted(work["Tanggal_DT"].dropna().dt.year.unique(), reverse=True)
     if not years:
-        st.info("�� Belum ada tanggal laporan yang valid.")
+        st.info("📭 Belum ada tanggal laporan yang valid.")
         return
     year = c2.selectbox("Pilih Tahun", years, key="rekap_thn")
     year_data = work[work["Tanggal_DT"].dt.year == year]
@@ -261,37 +228,31 @@ def recap_page(df):
     for day in weekdays.values():
         day_df = week_data[week_data["Nama Hari"] == day]
         if day_df.empty:
-            rows[day] = {"Tanggal": "-", "Total Armada": 0, "Call": 0, "Beli Ada": 0,
-                "Beli Ks Tambah": 0, "Beli Ks Baru": 0, "TBA Aktif": 0, "TBA Pasif": 0,
-                "Kosong": 0, "Total Omset": 0, "Average Dropsize": 0.0,
-                "% Availability Sebelum": "0.0%", "% Availability Sesudah": "0.0%",
-                "EC": 0, "% EC": "0.0%", "% Repeat": "0.0%", "% OOS": "0.0%",
-                "% Outlet Ecer": "0.0%", "Total Sampling": 0, "Kontak Konsumen": 0,
-                "Laku Direct Selling": 0}
+            rows[day] = {"Tanggal": "-", "Total Armada": 0, "Call": 0, "Beli Ada": 0, "Beli Ks Tambah": 0, "Beli Ks Baru": 0, "TBA Aktif": 0, "TBA Pasif": 0, "Kosong": 0, "Total Omset": 0, "Average Dropsize": 0.0, "% Availability Sebelum": "0.0%", "% Availability Sesudah": "0.0%", "EC": 0, "% EC": "0.0%", "% Repeat": "0.0%", "% OOS": "0.0%", "% Outlet Ecer": "0.0%", "Total Sampling": 0, "Kontak Konsumen": 0, "Laku Direct Selling": 0}
             continue
-        val = lambda col: day_df[col].fillna(0).sum()
-        beli, ks_tb, ks_b = val("Outlet Beli Ada"), val("Outlet Ks Tb"), val("Outlet Ks B")
-        tba_a, tba_p, kosong = val("Outlet TB Ada A"), val("Outlet TB Ada P"), val("Outlet TB Ks")
+        total = lambda column: day_df[column].fillna(0).sum()
+        beli, ks_tb, ks_b = total("Outlet Beli Ada"), total("Outlet Ks Tb"), total("Outlet Ks B")
+        tba_a, tba_p, kosong = total("Outlet TB Ada A"), total("Outlet TB Ada P"), total("Outlet TB Ks")
         call = beli + ks_tb + ks_b + tba_a + tba_p + kosong
         total_beli = beli + ks_tb + ks_b
-        avail_before = (beli + tba_a + tba_p) / call * 100 if call else 0
-        avail_after = (beli + ks_tb + ks_b + tba_a + tba_p) / call * 100 if call else 0
+        available = beli + tba_a + tba_p
+        available_after = beli + ks_tb + ks_b + tba_a + tba_p
+        repeat_denominator = beli + ks_tb + tba_a + tba_p
         rows[day] = {
-            "Tanggal": day_df["Tanggal"].iloc[0] and datetime.strptime(day_df["Tanggal"].iloc[0], "%Y-%m-%d").strftime("%d/%m/%Y"),
+            "Tanggal": datetime.strptime(day_df["Tanggal"].iloc[0], "%Y-%m-%d").strftime("%d/%m/%Y"),
             "Total Armada": day_df["Nama Promotor"].nunique(), "Call": call,
             "Beli Ada": beli, "Beli Ks Tambah": ks_tb, "Beli Ks Baru": ks_b,
             "TBA Aktif": tba_a, "TBA Pasif": tba_p, "Kosong": kosong,
-            "Total Omset": val("Omset (Bungkus)"),
-            "Average Dropsize": round(val("Omset (Bungkus)") / total_beli, 1) if total_beli else 0.0,
-            "% Availability Sebelum": f"{round(avail_before, 1)}%",
-            "% Availability Sesudah": f"{round(avail_after, 1)}%", "EC": total_beli,
-            "% EC": f"{round(total_beli / call * 100, 1) if call else 0.0}%",
-            "% Repeat": f"{round((beli + ks_tb) / (beli + ks_tb + tba_a + tba_p) * 100, 1) if beli + ks_tb + tba_a + tba_p else 0.0}%",
+            "Total Omset": total("Omset (Bungkus)"),
+            "Average Dropsize": round(total("Omset (Bungkus)") / total_beli, 1) if total_beli else 0.0,
+            "% Availability Sebelum": f"{round(available / call * 100, 1) if call else 0.0}%",
+            "% Availability Sesudah": f"{round(available_after / call * 100, 1) if call else 0.0}%",
+            "EC": total_beli, "% EC": f"{round(total_beli / call * 100, 1) if call else 0.0}%",
+            "% Repeat": f"{round((beli + ks_tb) / repeat_denominator * 100, 1) if repeat_denominator else 0.0}%",
             "% OOS": f"{round(ks_tb / call * 100, 1) if call else 0.0}%",
-            "% Outlet Ecer": f"{round(val('Outlet Buka Ecer') / call * 100, 1) if call else 0.0}%",
-            "Total Sampling": val("Jumlah Rokok Sampling"),
-            "Kontak Konsumen": val("Jumlah Konsumen Trial"),
-            "Laku Direct Selling": val("Direct Selling"),
+            "% Outlet Ecer": f"{round(total('Outlet Buka Ecer') / call * 100, 1) if call else 0.0}%",
+            "Total Sampling": total("Jumlah Rokok Sampling"), "Kontak Konsumen": total("Jumlah Konsumen Trial"),
+            "Laku Direct Selling": total("Direct Selling"),
         }
     result = pd.DataFrame(rows)
     title_zone = f"Zona {zone}" if zone != "All Zona" else "All Zona"
@@ -311,9 +272,8 @@ def recap_page(df):
     fig.savefig(png, format="png", bbox_inches="tight", dpi=180, facecolor="white")
     plt.close(fig)
     png.seek(0)
-    pimg = PILImage.open(png).convert("RGB")
     jpg = BytesIO()
-    pimg.save(jpg, format="JPEG", quality=95)
+    PILImage.open(png).convert("RGB").save(jpg, format="JPEG", quality=95)
     d1, d2 = st.columns(2)
     d1.download_button("📷 Download PNG", png.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_minggu{week}_{year}.png", mime="image/png", key="dl_rekap_png")
     d2.download_button("🖼️ Download JPEG", jpg.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_minggu{week}_{year}.jpg", mime="image/jpeg", key="dl_rekap_jpeg")
@@ -332,29 +292,39 @@ def management_page(df, today):
     if df.empty:
         st.info("📭 Belum ada data laporan kanvas yang tercatat.")
         return
-    st.markdown("#### ✏️ Edit Entry Data (Koreksi Kesalahan Input)")
-    selected_id = st.selectbox("Pilih ID Data yang Ingin Di-edit:", df["ID"].tolist())
+    st.markdown("#### ✏️ Pilih laporan yang akan dikoreksi")
+    selected_id = st.selectbox("Pilih ID Data yang Ingin Di-edit:", df["ID"].tolist(), format_func=lambda value: f"ID #{value} — {df.loc[df['ID'] == value, 'Tanggal'].iloc[0]} — {df.loc[df['ID'] == value, 'Nama Promotor'].iloc[0]}")
     row = df[df["ID"] == selected_id].iloc[0]
+    st.markdown("##### Data sebelumnya")
+    st.dataframe(row.to_frame().T, use_container_width=True, hide_index=True)
+    st.markdown("##### Form Edit Laporan")
     with st.form("form_edit_kanvas"):
-        st.markdown(f"#### Edit Data ID #{selected_id}")
         c1, c2 = st.columns(2)
         with c1:
-            edit_date = st.date_input("Tanggal", value=pd.to_datetime(row["Tanggal"]).date())
+            raw_date = pd.to_datetime(row["Tanggal"], errors="coerce")
+            edit_date = st.date_input("Date", value=raw_date.date() if pd.notna(raw_date) else datetime.now(TZ_WIB).date())
             promoters = list(PROMOTOR_ZONA)
             edit_promoter = st.selectbox("Nama Promotor", promoters, index=promoters.index(row["Nama Promotor"]) if row["Nama Promotor"] in promoters else 0)
             brands = ["Djarum 76 Aksara"]
             edit_brand = st.selectbox("Brand", brands, index=brands.index(row["Brand"]) if row["Brand"] in brands else 0)
         with c2:
             st.text_input("Zona (Otomatis)", value=PROMOTOR_ZONA.get(edit_promoter, "-"), disabled=True)
-            edit_values = {}
-            for key, label in FIELD_LABELS.items():
-                edit_values[key] = st.number_input(label, min_value=0, step=1, value=int(row[label] or 0), key=f"edit_{selected_id}_{key}")
+            edit_values = {
+                "canvas_plan": st.number_input("Canvas Plan", min_value=0, step=1, value=int(row["Canvas Plan"] or 0)),
+                "omset_bungkus": st.number_input("Omset (bungkus)", min_value=0, step=1, value=int(row["Omset (Bungkus)"] or 0)),
+            }
+        st.markdown("#### 📊 Rincian Outlet")
+        edit_keys = [key for key in FIELD_LABELS if key not in ("canvas_plan", "omset_bungkus")]
+        edit_cols = st.columns(3)
+        for index, key in enumerate(edit_keys):
+            with edit_cols[index % 3]:
+                edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
         update = st.form_submit_button("💾 Perbarui Data", type="primary")
     if update:
         columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
-        values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[k]) for k in FIELD_LABELS], int(selected_id)]
+        values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
         with sqlite3.connect(DB_NAME) as conn:
-            conn.execute(f"UPDATE kanvas SET {', '.join(f'{col} = ?' for col in columns)} WHERE id = ?", values)
+            conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
         st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
         st.rerun()
     st.markdown("#### 📥 Unduh Laporan")
@@ -379,6 +349,21 @@ def management_page(df, today):
 
 def backup_page(df):
     st.title("☁️ Backup Data ke Google Sheets")
+    if "backup_authenticated" not in st.session_state:
+        st.session_state["backup_authenticated"] = False
+    if not st.session_state["backup_authenticated"]:
+        with st.form("backup_login"):
+            password = st.text_input("Password Admin:", type="password")
+            login = st.form_submit_button("🔓 Buka Menu Backup", type="primary")
+        if login:
+            if password == ADMIN_PASSWORD:
+                st.session_state["backup_authenticated"] = True
+                st.rerun()
+            st.error("❌ Password salah!")
+        return
+    if st.button("🔒 Kunci Menu Backup"):
+        st.session_state["backup_authenticated"] = False
+        st.rerun()
     st.write("Gunakan tombol di bawah ini untuk sinkronisasi atau backup ulang seluruh data lokal ke Google Sheets.")
     if st.button("🔄 Kirim/Backup Semua Data ke Google Sheets", type="primary"):
         if df.empty:
@@ -387,11 +372,7 @@ def backup_page(df):
         progress = st.progress(0)
         succeeded = 0
         for index, row in df.iterrows():
-            payload = {
-                "id": int(row["ID"]), "tanggal": str(row["Tanggal"]),
-                "nama_promotor": str(row["Nama Promotor"]), "zona": str(row["Zona"]),
-                "brand": str(row["Brand"]),
-            }
+            payload = {"id": int(row["ID"]), "tanggal": str(row["Tanggal"]), "nama_promotor": str(row["Nama Promotor"]), "zona": str(row["Zona"]), "brand": str(row["Brand"])}
             for key, label in FIELD_LABELS.items():
                 payload[key] = int(row[label] or 0)
             payload["waktu_submit"] = str(row["Waktu Submit"])
@@ -414,30 +395,24 @@ if "notifikasi_sukses" in st.session_state:
 
 st.sidebar.title("📋 Laporan Kanvas")
 menu = st.sidebar.radio("Navigasi", [
-    "Form Entry & Status", "Rekapitulasi Harian & Mingguan",
-    "Panel Admin & Log Laporan", "Manajemen Data",
+    "Form Entry Laporan Kanvas",
+    "Manajemen Data (Edit, Unduh, & Hapus)",
+    "Rekapitulasi Harian & Mingguan (Report Table)",
+    "Panel Admin & Log Laporan Kanvas (Semua Data)",
     "Backup Data ke Google Sheets",
 ])
 st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
 
-if menu == "Form Entry & Status":
+if menu == "Form Entry Laporan Kanvas":
     report_form()
     st.markdown("---")
     daily_status(load_data(), today)
-elif menu == "Rekapitulasi Harian & Mingguan":
-    if require_admin():
-        admin_header()
-        recap_page(load_data())
-elif menu == "Panel Admin & Log Laporan":
-    if require_admin():
-        admin_header()
-        log_page(load_data())
-elif menu == "Manajemen Data":
-    if require_admin():
-        admin_header()
-        management_page(load_data(), today)
+elif menu == "Manajemen Data (Edit, Unduh, & Hapus)":
+    management_page(load_data(), today)
+elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
+    recap_page(load_data())
+elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)":
+    log_page(load_data())
 elif menu == "Backup Data ke Google Sheets":
-    if require_admin():
-        admin_header()
-        backup_page(load_data())
+    backup_page(load_data())
