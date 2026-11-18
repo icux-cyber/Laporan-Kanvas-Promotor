@@ -1,1 +1,1 @@
-# Laporan-Kanvas-Promotor
+# EntryKanvas
