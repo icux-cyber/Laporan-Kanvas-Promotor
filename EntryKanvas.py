@@ -169,13 +169,30 @@ with st.form("form_laporan_kanvas"):
 
     st.markdown("#### 📊 Rincian Outlet dan Promosi")
     values = {}
-    for key, label in FIELDS.items():
-        if key == "canvas_plan":
-            values[key] = int(canvas_plan)
-        elif key == "omset_bungkus":
-            values[key] = int(omset)
-        else:
-            values[key] = int(st.number_input(label, min_value=0, step=1, key=f"entry_{key}"))
+
+    rincian_fields = [
+        (key, label)
+        for key, label in FIELDS.items()
+        if key not in ("canvas_plan", "omset_bungkus")
+    ]
+
+    for index in range(0, len(rincian_fields), 2):
+        left_col, right_col = st.columns(2)
+        left_key, left_label = rincian_fields[index]
+        with left_col:
+            values[left_key] = int(
+                st.number_input(left_label, min_value=0, step=1, key=f"entry_{left_key}")
+            )
+
+        if index + 1 < len(rincian_fields):
+            right_key, right_label = rincian_fields[index + 1]
+            with right_col:
+                values[right_key] = int(
+                    st.number_input(right_label, min_value=0, step=1, key=f"entry_{right_key}")
+                )
+
+    values["canvas_plan"] = int(canvas_plan)
+    values["omset_bungkus"] = int(omset)
     submitted = st.form_submit_button("💾 Simpan Laporan", type="primary")
 
 if submitted:
