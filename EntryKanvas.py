@@ -71,6 +71,27 @@ FIELDS = {
     "direct_selling": "Direct Selling",
 }
 
+OUTLET_FIELDS = [
+    ("outlet_beli_ada", "Jumlah Outlet Beli Ada"),
+    ("outlet_ks_tb", "Jumlah Outlet Ks Tb"),
+    ("outlet_ks_b", "Jumlah Outlet Ks B"),
+    ("outlet_tb_ada_a", "Jumlah Outlet Tidak Beli Ada A"),
+    ("outlet_tb_ada_p", "Jumlah Outlet Tidak Beli Ada P"),
+    ("outlet_tb_ks", "Jumlah Outlet Tidak Beli Ks"),
+]
+
+PROMOSI_FIELDS = [
+    ("promsus_10_1", "10+1"),
+    ("promsus_3_1", "3+1"),
+    ("promsus_2_1", "2+1"),
+    ("promsus_1_1", "1+1"),
+    ("promsus_n_mie_instan", "N+ Mie Instan"),
+    ("outlet_buka_ecer", "Outlet Buka Ecer"),
+    ("jumlah_rokok_sampling", "Jumlah Rokok Sampling"),
+    ("jumlah_konsumen_trial", "Jumlah Konsumen Trial"),
+    ("direct_selling", "Direct Selling"),
+]
+
 st.set_page_config(
     page_title="Form Entry Laporan Kanvas",
     page_icon="📋",
@@ -103,7 +124,6 @@ def init_db():
                 waktu_submit TEXT
             )"""
         )
-        # Migrate older databases that predate newer report fields.
         existing = {row[1] for row in conn.execute("PRAGMA table_info(kanvas)")}
         additions = {
             "nama_promotor": "TEXT", "zona": "TEXT", "promsus_10_1": "INTEGER DEFAULT 0",
@@ -135,7 +155,6 @@ def backup_to_sheets(payload):
         response.raise_for_status()
         return True, "Backup Google Sheets berhasil."
     except requests.RequestException as exc:
-        # Avoid showing full request details or secrets in the UI.
         return False, f"Backup gagal ({type(exc).__name__}); data lokal tetap tersimpan."
 
 
@@ -147,6 +166,25 @@ def save_report(data):
             [data[name] for name in names],
         )
     return backup_to_sheets(data)
+
+
+def render_two_column_fields(fields, values):
+    """Render a separate two-column block of number inputs."""
+    for index in range(0, len(fields), 2):
+        left_col, right_col = st.columns(2)
+
+        left_key, left_label = fields[index]
+        with left_col:
+            values[left_key] = int(
+                st.number_input(left_label, min_value=0, step=1, key=f"entry_{left_key}")
+            )
+
+        if index + 1 < len(fields):
+            right_key, right_label = fields[index + 1]
+            with right_col:
+                values[right_key] = int(
+                    st.number_input(right_label, min_value=0, step=1, key=f"entry_{right_key}")
+                )
 
 
 init_db()
@@ -167,29 +205,15 @@ with st.form("form_laporan_kanvas"):
         canvas_plan = st.number_input("Canvas Plan", min_value=0, step=1)
         omset = st.number_input("Omset (bungkus)", min_value=0, step=1)
 
-    st.markdown("#### 📊 Rincian Outlet dan Promosi")
     values = {}
 
-    rincian_fields = [
-        (key, label)
-        for key, label in FIELDS.items()
-        if key not in ("canvas_plan", "omset_bungkus")
-    ]
+    with st.container(border=True):
+        st.markdown("#### 📊 Rincian Outlet")
+        render_two_column_fields(OUTLET_FIELDS, values)
 
-    for index in range(0, len(rincian_fields), 2):
-        left_col, right_col = st.columns(2)
-        left_key, left_label = rincian_fields[index]
-        with left_col:
-            values[left_key] = int(
-                st.number_input(left_label, min_value=0, step=1, key=f"entry_{left_key}")
-            )
-
-        if index + 1 < len(rincian_fields):
-            right_key, right_label = rincian_fields[index + 1]
-            with right_col:
-                values[right_key] = int(
-                    st.number_input(right_label, min_value=0, step=1, key=f"entry_{right_key}")
-                )
+    with st.container(border=True):
+        st.markdown("#### 🎁 Promosi Khusus (Promsus)")
+        render_two_column_fields(PROMOSI_FIELDS, values)
 
     values["canvas_plan"] = int(canvas_plan)
     values["omset_bungkus"] = int(omset)
@@ -213,7 +237,6 @@ if submitted:
     else:
         st.info(backup_message)
 
-# Public view only shows totals; the roster of who has/hasn't reported is private.
 st.markdown("---")
 st.subheader("🔍 Status Entry Hari Ini")
 df = load_data()
