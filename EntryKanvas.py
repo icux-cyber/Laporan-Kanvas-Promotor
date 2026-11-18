@@ -59,6 +59,16 @@ FIELD_LABELS = {
     "direct_selling": "Direct Selling",
 }
 
+OUTLET_KEYS = [
+    "outlet_beli_ada", "outlet_ks_tb", "outlet_ks_b",
+    "outlet_tb_ada_a", "outlet_tb_ada_p", "outlet_tb_ks",
+]
+PROMOTION_KEYS = [
+    "promsus_10_1", "promsus_3_1", "promsus_2_1", "promsus_1_1",
+    "promsus_n_mie_instan", "outlet_buka_ecer", "jumlah_rokok_sampling",
+    "jumlah_konsumen_trial", "direct_selling",
+]
+
 st.set_page_config(page_title="Form Entry Laporan Kanvas", page_icon="📋", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""
 <style>
@@ -124,42 +134,70 @@ def save_report(data):
 
 def report_form():
     st.subheader("📝 Masukkan Data Laporan Baru")
+    # Changing the form version resets all widget values after a saved entry,
+    # while previewing or cancelling leaves the current input intact.
+    version = st.session_state.get("entry_form_version", 0)
     with st.form("form_laporan_kanvas"):
         c1, c2 = st.columns(2)
         with c1:
-            date_value = st.date_input("Date", value=datetime.now(TZ_WIB).date())
-            promoter = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA))
-            brand = st.selectbox("Brand", ["Djarum 76 Aksara"])
+            date_value = st.date_input("Date", value=datetime.now(TZ_WIB).date(), key=f"entry_date_{version}")
+            promoter = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA), key=f"entry_promoter_{version}")
+            brand = st.selectbox("Brand", ["Djarum 76 Aksara"], key=f"entry_brand_{version}")
         with c2:
             st.text_input("Zona (Otomatis)", value=PROMOTOR_ZONA[promoter], disabled=True)
-            canvas_plan = st.number_input("Canvas Plan", min_value=0, step=1, value=0)
-            omset = st.number_input("Omset (bungkus)", min_value=0, step=1, value=0)
-        st.markdown("#### 📊 Rincian Outlet")
-        input_keys = [key for key in FIELD_LABELS if key not in ("canvas_plan", "omset_bungkus")]
-        inputs = {}
-        cols = st.columns(3)
-        for index, key in enumerate(input_keys):
-            with cols[index % 3]:
-                inputs[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=0, key=f"new_{key}")
+            canvas_plan = st.number_input("Canvas Plan", min_value=0, step=1, value=0, key=f"entry_plan_{version}")
+            omset = st.number_input("Omset (bungkus)", min_value=0, step=1, value=0, key=f"entry_omset_{version}")
+
+        st.markdown("#### 🏪 Rincian Outlet")
+        outlet_values = {}
+        outlet_columns = st.columns(3)
+        for index, key in enumerate(OUTLET_KEYS):
+            with outlet_columns[index % 3]:
+                outlet_values[key] = int(st.number_input(
+                    FIELD_LABELS[key], min_value=0, step=1, value=0,
+                    key=f"entry_{key}_{version}",
+                ))
+        outlet_total = sum(outlet_values.values())
+        st.caption(f"Jumlah outlet: **{outlet_total}** / Canvas Plan: **{int(canvas_plan)}**")
+
+        st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
+        promotion_values = {}
+        promotion_columns = st.columns(3)
+        for index, key in enumerate(PROMOTION_KEYS):
+            with promotion_columns[index % 3]:
+                promotion_values[key] = int(st.number_input(
+                    FIELD_LABELS[key], min_value=0, step=1, value=0,
+                    key=f"entry_{key}_{version}",
+                ))
         b1, b2 = st.columns(2)
         with b1:
             preview = st.form_submit_button("👁️ Lihat Preview", type="secondary")
         with b2:
             submit = st.form_submit_button("🚀 Langsung Kirim", type="primary")
+
     if preview or submit:
-        report = {
-            "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
-            "zona": PROMOTOR_ZONA[promoter], "brand": brand,
-            "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
-            **{key: int(value) for key, value in inputs.items()},
-            "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        if preview:
-            st.session_state["form_preview_data"] = report
+        if outlet_total != int(canvas_plan):
+            st.error(
+                "Jumlah outlet harus sama dengan Canvas Plan. "
+                f"Saat ini jumlah outlet {outlet_total}, sedangkan Canvas Plan {int(canvas_plan)}."
+            )
         else:
-            save_report(report)
-            st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database!"
-        st.rerun()
+            report = {
+                "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
+                "zona": PROMOTOR_ZONA[promoter], "brand": brand,
+                "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
+                **outlet_values, **promotion_values,
+                "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            if preview:
+                st.session_state["form_preview_data"] = report
+            else:
+                save_report(report)
+                st.session_state["form_preview_data"] = None
+                st.session_state["entry_form_version"] = version + 1
+                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database! Form entry telah dikosongkan."
+            st.rerun()
+
     pending = st.session_state.get("form_preview_data")
     if pending:
         st.markdown("### 📋 Preview Data Laporan Baru")
@@ -173,7 +211,8 @@ def report_form():
             if st.button("🚀 Konfirmasi & Simpan Laporan", type="primary"):
                 save_report(pending)
                 st.session_state["form_preview_data"] = None
-                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil disimpan ke database!"
+                st.session_state["entry_form_version"] = version + 1
+                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil disimpan ke database! Form entry telah dikosongkan."
                 st.rerun()
 
 
@@ -186,14 +225,14 @@ def daily_status(df, today):
     with yes:
         if entered:
             st.success(f"Terdapat **{len(entered)}** promotor yang sudah melakukan entry laporan hari ini.")
-            st.dataframe(pd.DataFrame([{"Nama Promotor": p, "Zona": PROMOTOR_ZONA.get(p, "-")} for p in entered]), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame([{"Nama Promotor": p, "Zona": PROMOTOR_ZONA.get(p, "-")} for p in entered]), use_container_width=True)
         else:
             st.info("📭 Belum ada promotor yang melakukan entry laporan pada hari ini.")
     with no:
         missing = [{"Nama Promotor": p, "Zona": z} for p, z in PROMOTOR_ZONA.items() if p not in entered]
         if missing:
             st.warning(f"⚠️ Terdapat **{len(missing)}** promotor yang belum melakukan entry laporan hari ini.")
-            st.dataframe(pd.DataFrame(missing), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(missing), use_container_width=True)
         else:
             st.success("🎉 Seluruh promotor telah melakukan entry laporan hari ini.")
 
@@ -206,21 +245,25 @@ def recap_page(df):
     work = df.copy()
     work["Tanggal_DT"] = pd.to_datetime(work["Tanggal"], errors="coerce")
     zones = ["All Zona"] + sorted(set(PROMOTOR_ZONA.values()))
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     zone = c1.selectbox("Pilih Zona", zones, key="rekap_zona")
     if zone != "All Zona":
         work = work[work["Zona"] == zone]
+    promoters = ["All Promotor"] + sorted(work["Nama Promotor"].dropna().unique().tolist())
+    promoter = c2.selectbox("Pilih Promotor", promoters, key="rekap_promotor")
+    if promoter != "All Promotor":
+        work = work[work["Nama Promotor"] == promoter]
     years = sorted(work["Tanggal_DT"].dropna().dt.year.unique(), reverse=True)
     if not years:
-        st.info("📭 Belum ada tanggal laporan yang valid.")
+        st.info("📭 Belum ada tanggal laporan yang valid untuk filter yang dipilih.")
         return
-    year = c2.selectbox("Pilih Tahun", years, key="rekap_thn")
+    year = c3.selectbox("Pilih Tahun", years, key="rekap_thn")
     year_data = work[work["Tanggal_DT"].dt.year == year]
     weeks = sorted(year_data["Tanggal_DT"].dt.isocalendar().week.dropna().unique(), reverse=True)
     if not weeks:
         st.info("📭 Tidak ada data pada tahun yang dipilih.")
         return
-    week = c3.selectbox("Pilih Minggu ke- (Week)", weeks, key="rekap_mg")
+    week = c4.selectbox("Pilih Minggu ke- (Week)", weeks, key="rekap_mg")
     week_data = year_data[year_data["Tanggal_DT"].dt.isocalendar().week == week].copy()
     weekdays = {0: "Senin", 1: "Selasa", 2: "Rabu", 3: "Kamis", 4: "Jumat"}
     week_data["Nama Hari"] = week_data["Tanggal_DT"].dt.weekday.map(weekdays)
@@ -256,7 +299,8 @@ def recap_page(df):
         }
     result = pd.DataFrame(rows)
     title_zone = f"Zona {zone}" if zone != "All Zona" else "All Zona"
-    title = f"Laporan Rekapitulasi {title_zone} - Minggu ke {week} - {year}"
+    title_promoter = f" — {promoter}" if promoter != "All Promotor" else ""
+    title = f"Laporan Rekapitulasi {title_zone}{title_promoter} - Minggu ke {week} - {year}"
     st.markdown(f"#### {title}")
     if os.path.exists("76aksara.png"):
         st.image("76aksara.png", use_container_width=True)
@@ -274,9 +318,10 @@ def recap_page(df):
     png.seek(0)
     jpg = BytesIO()
     PILImage.open(png).convert("RGB").save(jpg, format="JPEG", quality=95)
+    safe_filter = promoter.replace(" ", "_") if promoter != "All Promotor" else "all_promotor"
     d1, d2 = st.columns(2)
-    d1.download_button("📷 Download PNG", png.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_minggu{week}_{year}.png", mime="image/png", key="dl_rekap_png")
-    d2.download_button("🖼️ Download JPEG", jpg.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_minggu{week}_{year}.jpg", mime="image/jpeg", key="dl_rekap_jpeg")
+    d1.download_button("📷 Download PNG", png.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_{safe_filter}_minggu{week}_{year}.png", mime="image/png", key="dl_rekap_png")
+    d2.download_button("🖼️ Download JPEG", jpg.getvalue(), file_name=f"rekap_kanvas_{zone.replace(' ', '_')}_{safe_filter}_minggu{week}_{year}.jpg", mime="image/jpeg", key="dl_rekap_jpeg")
 
 
 def log_page(df):
@@ -313,20 +358,29 @@ def management_page(df, today):
                 "canvas_plan": st.number_input("Canvas Plan", min_value=0, step=1, value=int(row["Canvas Plan"] or 0)),
                 "omset_bungkus": st.number_input("Omset (bungkus)", min_value=0, step=1, value=int(row["Omset (Bungkus)"] or 0)),
             }
-        st.markdown("#### 📊 Rincian Outlet")
-        edit_keys = [key for key in FIELD_LABELS if key not in ("canvas_plan", "omset_bungkus")]
+        st.markdown("#### 🏪 Rincian Outlet")
         edit_cols = st.columns(3)
-        for index, key in enumerate(edit_keys):
+        for index, key in enumerate(OUTLET_KEYS):
             with edit_cols[index % 3]:
+                edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
+        outlet_total = sum(edit_values[key] for key in OUTLET_KEYS)
+        st.caption(f"Jumlah outlet: **{outlet_total}** / Canvas Plan: **{int(edit_values['canvas_plan'])}**")
+        st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
+        promo_cols = st.columns(3)
+        for index, key in enumerate(PROMOTION_KEYS):
+            with promo_cols[index % 3]:
                 edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
         update = st.form_submit_button("💾 Perbarui Data", type="primary")
     if update:
-        columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
-        values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
-        with sqlite3.connect(DB_NAME) as conn:
-            conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
-        st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
-        st.rerun()
+        if outlet_total != int(edit_values["canvas_plan"]):
+            st.error("Jumlah outlet harus sama dengan Canvas Plan sebelum data dapat diperbarui.")
+        else:
+            columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
+            values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
+            with sqlite3.connect(DB_NAME) as conn:
+                conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
+            st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
+            st.rerun()
     st.markdown("#### 📥 Unduh Laporan")
     scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
     exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
