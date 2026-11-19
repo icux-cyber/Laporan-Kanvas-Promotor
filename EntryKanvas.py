@@ -69,6 +69,20 @@ PROMOTION_KEYS = [
     "promsus_n_mie_instan", "outlet_buka_ecer", "jumlah_rokok_sampling",
     "jumlah_konsumen_trial", "direct_selling",
 ]
+SURVEY_AGE_RANGES = ["18-25 Tahun", "25-30 Tahun", "31-35 Tahun", "+35 Tahun"]
+SURVEY_ASPECTS = ["Rasa", "Hisapan", "Harga", "Kemasan", "Lainnya"]
+SURVEY_FEEDBACK_FIELDS = {
+    "Komentar Positif - Rasa": "komentar_positif_rasa",
+    "Komentar Positif - Hisapan": "komentar_positif_hisapan",
+    "Komentar Positif - Harga": "komentar_positif_harga",
+    "Komentar Positif - Kemasan": "komentar_positif_kemasan",
+    "Komentar Positif - Lainnya": "komentar_positif_lainnya",
+    "Komentar Negatif - Rasa": "komentar_negatif_rasa",
+    "Komentar Negatif - Hisapan": "komentar_negatif_hisapan",
+    "Komentar Negatif - Harga": "komentar_negatif_harga",
+    "Komentar Negatif - Kemasan": "komentar_negatif_kemasan",
+    "Komentar Negatif - Lainnya": "komentar_negatif_lainnya",
+}
 
 st.set_page_config(page_title="Form Entry Laporan Kanvas", page_icon="📋", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""
@@ -100,6 +114,21 @@ def init_db():
             range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
             bumo_rokok_konsumen TEXT, komentar_positif TEXT, komentar_negatif TEXT
         )""")
+        survey_columns = {row[1] for row in conn.execute("PRAGMA table_info(survey_konsumen)")}
+        legacy_comments = {
+            "komentar_positif_lainnya": "komentar_positif",
+            "komentar_negatif_lainnya": "komentar_negatif",
+        }
+        for column in SURVEY_FEEDBACK_FIELDS.values():
+            if column not in survey_columns:
+                conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {column} TEXT")
+                survey_columns.add(column)
+                legacy_column = legacy_comments.get(column)
+                if legacy_column and legacy_column in survey_columns:
+                    conn.execute(
+                        f"""UPDATE survey_konsumen SET {column} = {legacy_column}
+                        WHERE {legacy_column} IS NOT NULL AND TRIM({legacy_column}) != ''"""
+                    )
         columns = {row[1] for row in conn.execute("PRAGMA table_info(kanvas)")}
         if "pic" in columns and "nama_promotor" not in columns:
             conn.execute("ALTER TABLE kanvas RENAME COLUMN pic TO nama_promotor")
@@ -131,13 +160,15 @@ def load_data():
 
 def load_survey_data():
     with sqlite3.connect(DB_NAME) as conn:
-        return pd.read_sql_query("""SELECT id AS ID, waktu_survey AS [Waktu Survey],
+        feedback_columns = ", ".join(
+            f"{column} AS [{label}]" for label, column in SURVEY_FEEDBACK_FIELDS.items()
+        )
+        return pd.read_sql_query(f"""SELECT id AS ID, waktu_survey AS [Waktu Survey],
             nama_promotor AS [Nama Promotor], sektor_survey AS [Sektor Survey],
-            nama_konsumen AS [Nama Konsumen], range_usia_konsumen AS [Range Usia Konsumen],
+            nama_konsumen AS [Nama Konsumen], range_usia_konsumen AS [Range Umur Konsumen],
             pekerjaan_konsumen AS [Pekerjaan Konsumen],
             bumo_rokok_konsumen AS [BUMO Rokok Konsumen],
-            komentar_positif AS [Komentar Positif],
-            komentar_negatif AS [Komentar Negatif]
+            {feedback_columns}
             FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
 
 
@@ -247,42 +278,116 @@ def daily_status(df, today):
             st.success("🎉 Seluruh promotor telah melakukan entry laporan hari ini.")
 
 
-def consumer_survey_page():
-    st.title("🗣️ Survey Konsumen")
+def consumer_survey_entry_page():
+    st.title("📝 Entry Survey Konsumen")
     version = st.session_state.get("survey_form_version", 0)
     with st.form(f"form_survey_konsumen_{version}"):
-        nama_promotor = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA))
-        sektor_survey = st.text_input("Sektor Survey")
-        nama_konsumen = st.text_input("Nama Konsumen")
-        range_usia = st.text_input("Range Usia Konsumen")
-        pekerjaan = st.text_input("Pekerjaan Konsumen")
-        bumo = st.text_input("BUMO Rokok Konsumen")
-        komentar_positif = st.text_area("Komentar Positif dari Rokok yang Dicoba")
-        komentar_negatif = st.text_area("Komentar Negatif dari Rokok yang Dicoba")
+        nama_promotor = st.selectbox(
+            "Nama Promotor", list(PROMOTOR_ZONA), key=f"survey_promoter_{version}",
+        )
+        sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
+        nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
+        range_usia = st.selectbox(
+            "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
+        )
+        pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
+        bumo = st.text_input("BUMO Rokok Konsumen", key=f"survey_bumo_{version}")
+        positive_comments = {}
+        negative_comments = {}
+        positive_column, negative_column = st.columns(2)
+        with positive_column:
+            st.markdown("#### Komentar Positif dari Rokok yang Dicoba")
+            for aspect in SURVEY_ASPECTS:
+                label = f"Komentar Positif - {aspect}"
+                key = SURVEY_FEEDBACK_FIELDS[label]
+                positive_comments[key] = st.text_area(
+                    label, key=f"survey_{key}_{version}",
+                )
+        with negative_column:
+            st.markdown("#### Komentar Negatif dari Rokok yang Dicoba")
+            for aspect in SURVEY_ASPECTS:
+                label = f"Komentar Negatif - {aspect}"
+                key = SURVEY_FEEDBACK_FIELDS[label]
+                negative_comments[key] = st.text_area(
+                    label, key=f"survey_{key}_{version}",
+                )
         submit = st.form_submit_button("💾 Simpan Survey", type="primary")
 
     if submit:
+        feedback = {**positive_comments, **negative_comments}
+        columns = [
+            "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
+            "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
+            *SURVEY_FEEDBACK_FIELDS.values(),
+        ]
+        values = [
+            datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
+            nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
+            range_usia, pekerjaan.strip(), bumo.strip(),
+            *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
+        ]
         with sqlite3.connect(DB_NAME) as conn:
-            conn.execute("""INSERT INTO survey_konsumen (
-                waktu_survey, nama_promotor, sektor_survey, nama_konsumen,
-                range_usia_konsumen, pekerjaan_konsumen, bumo_rokok_konsumen,
-                komentar_positif, komentar_negatif
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
-                datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
-                nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
-                range_usia.strip(), pekerjaan.strip(), bumo.strip(),
-                komentar_positif.strip(), komentar_negatif.strip(),
-            ))
+            conn.execute(
+                f"INSERT INTO survey_konsumen ({', '.join(columns)}) "
+                f"VALUES ({', '.join('?' for _ in columns)})",
+                values,
+            )
         st.session_state["survey_form_version"] = version + 1
         st.session_state["notifikasi_sukses"] = "✅ Survey konsumen berhasil disimpan."
         st.rerun()
 
-    st.markdown("#### 📋 Data Survey Tersimpan")
+
+def survey_log_page():
+    st.title("📋 Log Entry Survey Konsumen")
     survey_df = load_survey_data()
     if survey_df.empty:
         st.info("📭 Belum ada data survey konsumen.")
     else:
         st.dataframe(survey_df, use_container_width=True, hide_index=True)
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            survey_df.to_excel(writer, index=False, sheet_name="Survey Konsumen")
+        st.download_button(
+            "💾 Download Log Survey ke Excel",
+            output.getvalue(),
+            file_name=f"log_survey_konsumen_{datetime.now(TZ_WIB).strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+
+def survey_monitoring_page():
+    st.title("📊 Monitoring Survey Konsumen")
+    survey_df = load_survey_data()
+    if survey_df.empty:
+        st.info("📭 Belum ada data survey untuk dimonitor.")
+        return
+
+    positive_counts = [
+        survey_df[f"Komentar Positif - {aspect}"].fillna("").astype(str).str.strip().ne("").sum()
+        for aspect in SURVEY_ASPECTS
+    ]
+    negative_counts = [
+        survey_df[f"Komentar Negatif - {aspect}"].fillna("").astype(str).str.strip().ne("").sum()
+        for aspect in SURVEY_ASPECTS
+    ]
+    metrics = st.columns(3)
+    metrics[0].metric("Total Survey", len(survey_df))
+    metrics[1].metric("Komentar Positif", sum(positive_counts))
+    metrics[2].metric("Komentar Negatif", sum(negative_counts))
+
+    positions = range(len(SURVEY_ASPECTS))
+    width = 0.36
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar([position - width / 2 for position in positions], positive_counts, width, label="Positif")
+    ax.bar([position + width / 2 for position in positions], negative_counts, width, label="Negatif")
+    ax.set_xticks(list(positions))
+    ax.set_xticklabels(SURVEY_ASPECTS)
+    ax.set_ylabel("Jumlah komentar")
+    ax.set_title("Komentar per Aspek Rokok")
+    ax.legend()
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
 
 
 def recap_page(df):
@@ -510,6 +615,12 @@ if "notifikasi_sukses" in st.session_state:
 
 if st.session_state.get("active_page", "Laporan Kanvas") == "Survey Konsumen":
     st.sidebar.title("🗣️ Survey Konsumen")
+    survey_menu = st.sidebar.radio(
+        "Menu Survey",
+        ["Entry Survey", "Log Entry Survey", "Monitoring Survey"],
+        key="survey_navigation",
+    )
+    st.sidebar.markdown("---")
     if st.sidebar.button("← Kembali ke Laporan Kanvas", key="back_to_kanvas"):
         st.session_state["active_page"] = "Laporan Kanvas"
         st.rerun()
@@ -536,7 +647,12 @@ if menu == "Form Entry Laporan Kanvas":
     st.markdown("---")
     daily_status(load_data(), today)
 elif menu == "Survey Konsumen":
-    consumer_survey_page()
+    if survey_menu == "Entry Survey":
+        consumer_survey_entry_page()
+    elif survey_menu == "Log Entry Survey":
+        survey_log_page()
+    elif survey_menu == "Monitoring Survey":
+        survey_monitoring_page()
 elif menu == "Manajemen Data (Edit, Unduh, & Hapus)":
     management_page(load_data(), today)
 elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
