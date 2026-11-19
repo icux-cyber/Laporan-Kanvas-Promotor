@@ -471,6 +471,31 @@ def survey_monitoring_page():
     st.pyplot(fig)
     plt.close(fig)
 
+    age_values = survey_df["Range Umur Konsumen"].fillna("").astype(str).str.strip()
+    age_values = age_values.replace("", "Tidak diisi")
+    age_aliases = {
+        "18-25": "18-25 Tahun",
+        "25-30": "25-30 Tahun",
+        "31-35": "31-35 Tahun",
+        "+35": "+35 Tahun",
+    }
+    age_counts = age_values.replace(age_aliases).value_counts()
+    ordered_ages = [age for age in SURVEY_AGE_RANGES if age in age_counts.index]
+    ordered_ages.extend(sorted(age for age in age_counts.index if age not in SURVEY_AGE_RANGES))
+    age_counts = age_counts.reindex(ordered_ages)
+
+    age_fig, age_ax = plt.subplots(figsize=(8, 6))
+    age_ax.pie(
+        age_counts.values,
+        labels=age_counts.index,
+        autopct="%1.1f%%",
+        startangle=90,
+    )
+    age_ax.set_title("Sebaran Range Umur Konsumen")
+    age_ax.axis("equal")
+    st.pyplot(age_fig)
+    plt.close(age_fig)
+
 
 def recap_page(df):
     st.title("📈 Rekapitulasi Harian & Mingguan (Report Table)")
