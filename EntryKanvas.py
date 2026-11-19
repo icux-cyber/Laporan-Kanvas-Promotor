@@ -508,18 +508,25 @@ if "notifikasi_sukses" in st.session_state:
     st.balloons()
     st.success(st.session_state.pop("notifikasi_sukses"))
 
-st.sidebar.title("📋 Navigasi")
-page = st.sidebar.radio("Halaman", ["Laporan Kanvas", "Survey Konsumen"], key="main_page")
-if page == "Laporan Kanvas":
-    menu = st.sidebar.radio("Menu Laporan Kanvas", [
+if st.session_state.get("active_page", "Laporan Kanvas") == "Survey Konsumen":
+    st.sidebar.title("🗣️ Survey Konsumen")
+    if st.sidebar.button("← Kembali ke Laporan Kanvas", key="back_to_kanvas"):
+        st.session_state["active_page"] = "Laporan Kanvas"
+        st.rerun()
+    menu = "Survey Konsumen"
+else:
+    st.sidebar.title("📋 Laporan Kanvas")
+    menu = st.sidebar.radio("Navigasi", [
         "Form Entry Laporan Kanvas",
         "Manajemen Data (Edit, Unduh, & Hapus)",
         "Rekapitulasi Harian & Mingguan (Report Table)",
         "Panel Admin & Log Laporan Kanvas (Semua Data)",
         "Backup Data ke Google Sheets",
     ])
-else:
-    menu = "Survey Konsumen"
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🗣️ Survey Konsumen", key="open_consumer_survey"):
+        st.session_state["active_page"] = "Survey Konsumen"
+        st.rerun()
 if menu == "Form Entry Laporan Kanvas":
     st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
