@@ -453,7 +453,7 @@ def survey_monitoring_page():
         for aspect in SURVEY_ASPECTS
     ]
     metrics = st.columns(3)
-    metrics[0].metric("Total Survey", len(survey_df))
+    metrics[0].metric("Total Konsumen Survey", len(survey_df))
     metrics[1].metric("Komentar Positif", sum(positive_counts))
     metrics[2].metric("Komentar Negatif", sum(negative_counts))
 
