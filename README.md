@@ -25,6 +25,8 @@ WEBHOOK_URL = "https://alamat-web-app-google-apps-script/exec"
 
 Tanpa `ADMIN_PASSWORD`, area admin tetap terkunci. Tanpa `WEBHOOK_URL`, penyimpanan lokal tetap berfungsi, tetapi backup Google Sheets tidak dikirim. Lindungi endpoint Apps Script dengan kontrol akses yang sesuai, gunakan HTTPS, dan uji pemulihan backup secara berkala.
 
+Untuk backup Survey Konsumen dan penghapusan yang ikut tersinkron, salin `GoogleAppsScript.gs` ke project Apps Script yang terhubung ke spreadsheet, lalu deploy versi web app terbaru pada URL webhook yang sama. Script mempertahankan tab `DataKanvas` dan menyimpan survey secara idempotent berdasarkan ID di tab `SurveyKonsumen`.
+
 ## Catatan data
 
 Status publik hanya menampilkan jumlah laporan hari ini, bukan daftar nama promotor yang sudah/belum entry. Jangan gunakan SQLite pada filesystem ephemeral sebagai satu-satunya salinan data penting.

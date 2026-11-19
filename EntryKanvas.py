@@ -182,6 +182,51 @@ def save_report(data):
         pass
 
 
+def sync_survey_to_sheets(action, survey):
+    payload = {"type": "survey_konsumen", "action": action}
+    if action == "upsert":
+        payload.update(survey)
+    elif action == "delete":
+        payload["id"] = int(survey)
+    else:
+        raise ValueError(f"Aksi sinkronisasi survey tidak dikenal: {action}")
+
+    try:
+        capability_response = requests.get(WEBHOOK_URL, timeout=10)
+    except requests.RequestException as error:
+        raise RuntimeError("Tidak dapat memeriksa dukungan survey pada webhook Google Sheets.") from error
+    if not capability_response.ok:
+        raise RuntimeError(
+            f"Pemeriksaan webhook Google Sheets merespons HTTP {capability_response.status_code}."
+        )
+    try:
+        capability = capability_response.json()
+    except ValueError as error:
+        raise RuntimeError(
+            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
+        ) from error
+    if not isinstance(capability, dict) or capability.get("survey_sync_version") != 1:
+        raise RuntimeError(
+            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
+        )
+
+    try:
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
+    except requests.RequestException as error:
+        raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
+    if not response.ok:
+        raise RuntimeError(f"Webhook Google Sheets merespons HTTP {response.status_code}.")
+    try:
+        result = response.json()
+    except ValueError as error:
+        raise RuntimeError("Respons webhook Google Sheets bukan JSON yang valid.") from error
+    if not isinstance(result, dict) or result.get("status") != "success":
+        message = result.get("message", "Permintaan survey ditolak.") if isinstance(result, dict) else "Respons webhook tidak valid."
+        raise RuntimeError(message)
+    if result.get("type") != "survey_konsumen" or result.get("action") != action:
+        raise RuntimeError("Respons webhook tidak mengonfirmasi sinkronisasi survey yang diminta.")
+
+
 def report_form():
     st.subheader("📝 Masukkan Data Laporan Baru")
     # Changing the form version resets all widget values after a saved entry,
@@ -327,13 +372,22 @@ def consumer_survey_entry_page():
             *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
         ]
         with sqlite3.connect(DB_NAME) as conn:
-            conn.execute(
+            cursor = conn.execute(
                 f"INSERT INTO survey_konsumen ({', '.join(columns)}) "
                 f"VALUES ({', '.join('?' for _ in columns)})",
                 values,
             )
+            survey_record = dict(zip(columns, values))
+            survey_record["id"] = int(cursor.lastrowid)
+        try:
+            sync_survey_to_sheets("upsert", survey_record)
+        except RuntimeError as error:
+            st.session_state["notifikasi_error"] = (
+                f"Survey tersimpan di database lokal, tetapi backup Google Sheets gagal: {error}"
+            )
+        else:
+            st.session_state["notifikasi_sukses"] = "✅ Survey berhasil disimpan dan di-backup ke Google Sheets."
         st.session_state["survey_form_version"] = version + 1
-        st.session_state["notifikasi_sukses"] = "✅ Survey konsumen berhasil disimpan."
         st.rerun()
 
 
@@ -353,6 +407,34 @@ def survey_log_page():
             file_name=f"log_survey_konsumen_{datetime.now(TZ_WIB).strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+        st.markdown("#### 🗑️ Hapus Survey per Baris")
+        delete_id = st.selectbox(
+            "Pilih survey yang akan dihapus:",
+            survey_df["ID"].tolist(),
+            format_func=lambda value: (
+                f"ID #{value} — {survey_df.loc[survey_df['ID'] == value, 'Nama Konsumen'].iloc[0]} "
+                f"— {survey_df.loc[survey_df['ID'] == value, 'Nama Promotor'].iloc[0]}"
+            ),
+            key="delete_survey_id",
+        )
+        with st.form("form_hapus_satu_survey"):
+            confirm_delete = st.checkbox("Saya yakin ingin menghapus survey yang dipilih.")
+            delete_survey = st.form_submit_button("🗑️ Hapus Survey Terpilih", type="secondary")
+        if delete_survey:
+            if not confirm_delete:
+                st.error("Centang konfirmasi sebelum menghapus survey.")
+            else:
+                try:
+                    sync_survey_to_sheets("delete", delete_id)
+                except RuntimeError as error:
+                    st.error(f"Penghapusan dibatalkan karena backup Google Sheets gagal: {error}")
+                else:
+                    with sqlite3.connect(DB_NAME) as conn:
+                        conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
+                    st.session_state["notifikasi_sukses"] = (
+                        f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
+                    )
+                    st.rerun()
 
 
 def survey_monitoring_page():
@@ -612,6 +694,8 @@ today = now.strftime("%Y-%m-%d")
 if "notifikasi_sukses" in st.session_state:
     st.balloons()
     st.success(st.session_state.pop("notifikasi_sukses"))
+if "notifikasi_error" in st.session_state:
+    st.error(st.session_state.pop("notifikasi_error"))
 
 if st.session_state.get("active_page", "Laporan Kanvas") == "Survey Konsumen":
     st.sidebar.title("🗣️ Survey Konsumen")
