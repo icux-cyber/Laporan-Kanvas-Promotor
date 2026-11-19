@@ -37,6 +37,7 @@ PROMOTOR_ZONA = {
     "Rendi Wahyudi": "Sawahan", "Arik Setiawan": "Tandes",
     "Syarif Usman Fadholi": "Tandes", "Surya Wisnu Wibisono": "Tandes",
     "Eko Sucipto": "Tandes",
+    "Indra Fredi Wibowo" : "Tandes",
 }
 
 FIELD_LABELS = {
