@@ -15,7 +15,7 @@ from PIL import Image as PILImage
 
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby_YGCckSCAKhEOxlOMvhD0_dNUn4OM-lOyYLRzbE7aUzhnK5v9BU6ywVf6n1v-U7Y/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxQo1RhqgAoGrZFmwzobcLfOxnR7S_g7kj0S2RHTS4czCm1fA3HqvHdebcinBLlYq8/exec"
 ADMIN_PASSWORD = "admin123"
 
 PROMOTOR_ZONA = {
