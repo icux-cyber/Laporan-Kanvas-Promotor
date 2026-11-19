@@ -157,9 +157,6 @@ def report_form():
                     FIELD_LABELS[key], min_value=0, step=1, value=0,
                     key=f"entry_{key}_{version}",
                 ))
-        outlet_total = sum(outlet_values.values())
-        st.caption(f"Jumlah outlet: **{outlet_total}** / Canvas Plan: **{int(canvas_plan)}**")
-
         st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
         promotion_values = {}
         promotion_columns = st.columns(3)
@@ -176,27 +173,21 @@ def report_form():
             submit = st.form_submit_button("🚀 Langsung Kirim", type="primary")
 
     if preview or submit:
-        if outlet_total != int(canvas_plan):
-            st.error(
-                "Jumlah outlet harus sama dengan Canvas Plan. "
-                f"Saat ini jumlah outlet {outlet_total}, sedangkan Canvas Plan {int(canvas_plan)}."
-            )
+        report = {
+            "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
+            "zona": PROMOTOR_ZONA[promoter], "brand": brand,
+            "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
+            **outlet_values, **promotion_values,
+            "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        if preview:
+            st.session_state["form_preview_data"] = report
         else:
-            report = {
-                "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
-                "zona": PROMOTOR_ZONA[promoter], "brand": brand,
-                "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
-                **outlet_values, **promotion_values,
-                "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            if preview:
-                st.session_state["form_preview_data"] = report
-            else:
-                save_report(report)
-                st.session_state["form_preview_data"] = None
-                st.session_state["entry_form_version"] = version + 1
-                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database! Form entry telah dikosongkan."
-            st.rerun()
+            save_report(report)
+            st.session_state["form_preview_data"] = None
+            st.session_state["entry_form_version"] = version + 1
+            st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database! Form entry telah dikosongkan."
+        st.rerun()
 
     pending = st.session_state.get("form_preview_data")
     if pending:
@@ -363,8 +354,6 @@ def management_page(df, today):
         for index, key in enumerate(OUTLET_KEYS):
             with edit_cols[index % 3]:
                 edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
-        outlet_total = sum(edit_values[key] for key in OUTLET_KEYS)
-        st.caption(f"Jumlah outlet: **{outlet_total}** / Canvas Plan: **{int(edit_values['canvas_plan'])}**")
         st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
         promo_cols = st.columns(3)
         for index, key in enumerate(PROMOTION_KEYS):
@@ -372,15 +361,12 @@ def management_page(df, today):
                 edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
         update = st.form_submit_button("💾 Perbarui Data", type="primary")
     if update:
-        if outlet_total != int(edit_values["canvas_plan"]):
-            st.error("Jumlah outlet harus sama dengan Canvas Plan sebelum data dapat diperbarui.")
-        else:
-            columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
-            values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
-            with sqlite3.connect(DB_NAME) as conn:
-                conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
-            st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
-            st.rerun()
+        columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
+        values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
+        st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
+        st.rerun()
     st.markdown("#### 📥 Unduh Laporan")
     scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
     exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
