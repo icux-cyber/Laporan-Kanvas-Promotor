@@ -93,6 +93,12 @@ def init_db():
             jumlah_rokok_sampling INTEGER DEFAULT 0, jumlah_konsumen_trial INTEGER DEFAULT 0,
             direct_selling INTEGER DEFAULT 0, waktu_submit TEXT
         )""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS survey_konsumen (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, waktu_survey TEXT NOT NULL,
+            nama_promotor TEXT NOT NULL, sektor_survey TEXT, nama_konsumen TEXT,
+            range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
+            bumo_rokok_konsumen TEXT, komentar_positif TEXT, komentar_negatif TEXT
+        )""")
         columns = {row[1] for row in conn.execute("PRAGMA table_info(kanvas)")}
         if "pic" in columns and "nama_promotor" not in columns:
             conn.execute("ALTER TABLE kanvas RENAME COLUMN pic TO nama_promotor")
@@ -120,6 +126,18 @@ def load_data():
             jumlah_konsumen_trial AS [Jumlah Konsumen Trial],
             direct_selling AS [Direct Selling], waktu_submit AS [Waktu Submit]
             FROM kanvas ORDER BY waktu_submit DESC""", conn)
+
+
+def load_survey_data():
+    with sqlite3.connect(DB_NAME) as conn:
+        return pd.read_sql_query("""SELECT id AS ID, waktu_survey AS [Waktu Survey],
+            nama_promotor AS [Nama Promotor], sektor_survey AS [Sektor Survey],
+            nama_konsumen AS [Nama Konsumen], range_usia_konsumen AS [Range Usia Konsumen],
+            pekerjaan_konsumen AS [Pekerjaan Konsumen],
+            bumo_rokok_konsumen AS [BUMO Rokok Konsumen],
+            komentar_positif AS [Komentar Positif],
+            komentar_negatif AS [Komentar Negatif]
+            FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
 
 
 def save_report(data):
@@ -226,6 +244,44 @@ def daily_status(df, today):
             st.dataframe(pd.DataFrame(missing), use_container_width=True)
         else:
             st.success("🎉 Seluruh promotor telah melakukan entry laporan hari ini.")
+
+
+def consumer_survey_page():
+    st.title("🗣️ Survey Konsumen")
+    version = st.session_state.get("survey_form_version", 0)
+    with st.form(f"form_survey_konsumen_{version}"):
+        nama_promotor = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA))
+        sektor_survey = st.text_input("Sektor Survey")
+        nama_konsumen = st.text_input("Nama Konsumen")
+        range_usia = st.text_input("Range Usia Konsumen")
+        pekerjaan = st.text_input("Pekerjaan Konsumen")
+        bumo = st.text_input("BUMO Rokok Konsumen")
+        komentar_positif = st.text_area("Komentar Positif dari Rokok yang Dicoba")
+        komentar_negatif = st.text_area("Komentar Negatif dari Rokok yang Dicoba")
+        submit = st.form_submit_button("💾 Simpan Survey", type="primary")
+
+    if submit:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.execute("""INSERT INTO survey_konsumen (
+                waktu_survey, nama_promotor, sektor_survey, nama_konsumen,
+                range_usia_konsumen, pekerjaan_konsumen, bumo_rokok_konsumen,
+                komentar_positif, komentar_negatif
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+                datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
+                nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
+                range_usia.strip(), pekerjaan.strip(), bumo.strip(),
+                komentar_positif.strip(), komentar_negatif.strip(),
+            ))
+        st.session_state["survey_form_version"] = version + 1
+        st.session_state["notifikasi_sukses"] = "✅ Survey konsumen berhasil disimpan."
+        st.rerun()
+
+    st.markdown("#### 📋 Data Survey Tersimpan")
+    survey_df = load_survey_data()
+    if survey_df.empty:
+        st.info("📭 Belum ada data survey konsumen.")
+    else:
+        st.dataframe(survey_df, use_container_width=True, hide_index=True)
 
 
 def recap_page(df):
@@ -367,6 +423,24 @@ def management_page(df, today):
             conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
         st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
         st.rerun()
+    st.markdown("#### 🗑️ Hapus Data Per Baris")
+    delete_id = st.selectbox(
+        "Pilih laporan yang akan dihapus:",
+        df["ID"].tolist(),
+        format_func=lambda value: f"ID #{value} — {df.loc[df['ID'] == value, 'Tanggal'].iloc[0]} — {df.loc[df['ID'] == value, 'Nama Promotor'].iloc[0]}",
+        key="delete_single_report_id",
+    )
+    with st.form("form_hapus_satu_laporan"):
+        confirm_single_delete = st.checkbox("Saya yakin ingin menghapus laporan yang dipilih.")
+        delete_single = st.form_submit_button("🗑️ Hapus Laporan Terpilih", type="secondary")
+    if delete_single:
+        if not confirm_single_delete:
+            st.error("Centang konfirmasi sebelum menghapus laporan.")
+        else:
+            with sqlite3.connect(DB_NAME) as conn:
+                conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
+            st.session_state["notifikasi_sukses"] = f"🗑️ Laporan ID #{delete_id} berhasil dihapus."
+            st.rerun()
     st.markdown("#### 📥 Unduh Laporan")
     scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
     exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
@@ -436,18 +510,22 @@ if "notifikasi_sukses" in st.session_state:
 st.sidebar.title("📋 Laporan Kanvas")
 menu = st.sidebar.radio("Navigasi", [
     "Form Entry Laporan Kanvas",
+    "Survey Konsumen",
     "Manajemen Data (Edit, Unduh, & Hapus)",
     "Rekapitulasi Harian & Mingguan (Report Table)",
     "Panel Admin & Log Laporan Kanvas (Semua Data)",
     "Backup Data ke Google Sheets",
 ])
-st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
+if menu == "Form Entry Laporan Kanvas":
+    st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
 
 if menu == "Form Entry Laporan Kanvas":
     report_form()
     st.markdown("---")
     daily_status(load_data(), today)
+elif menu == "Survey Konsumen":
+    consumer_survey_page()
 elif menu == "Manajemen Data (Edit, Unduh, & Hapus)":
     management_page(load_data(), today)
 elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":

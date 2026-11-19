@@ -1,6 +1,6 @@
 # EntryKanvas
 
-Aplikasi Streamlit untuk pencatatan laporan kanvas promotor, status entry harian, ekspor Excel, dan rekap mingguan.
+Aplikasi Streamlit untuk pencatatan laporan kanvas promotor, survey konsumen, status entry harian, ekspor Excel, dan rekap mingguan. Laporan kanvas dapat dikoreksi atau dihapus satu per satu melalui menu Manajemen Data.
 
 ## Menjalankan aplikasi
 
