@@ -71,7 +71,7 @@ PROMOTION_KEYS = [
     "promsus_n_mie_instan", "outlet_buka_ecer", "jumlah_rokok_sampling",
     "jumlah_konsumen_trial", "direct_selling",
 ]
-SURVEY_AGE_RANGES = ["18-24 Tahun", "25-30 Tahun", "31-34 Tahun", "35-40 Tahun","40+ Tahun"]
+SURVEY_AGE_RANGES = ["18-24 Tahun", "25-30 Tahun", "31-34 Tahun", "35-40 Tahun", "40+ Tahun"]
 SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
 SURVEY_AWARENESS_SOURCES = [
     "Papan Reklame",
@@ -179,6 +179,96 @@ def init_db():
                 conn.execute(f"ALTER TABLE kanvas ADD COLUMN {name} {kind}")
 
 
+def _safe_int(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(float(value))
+    except (ValueError, TypeError):
+        return default
+
+
+def restore_from_google_sheets():
+    """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets dan menimpa database lokal."""
+    try:
+        response = requests.get(WEBHOOK_URL, params={"action": "restore"}, timeout=20)
+        response.raise_for_status()
+        payload = response.json()
+    except requests.RequestException as err:
+        return False, f"Gagal menghubungi Google Sheets: {err}"
+    except ValueError:
+        return False, "Respons dari Google Sheets bukan JSON yang valid."
+
+    if not isinstance(payload, dict) or payload.get("status") != "success":
+        msg = payload.get("message", "Gagal mengambil data dari Google Sheets.") if isinstance(payload, dict) else "Format respons tidak sesuai."
+        return False, msg
+
+    if "kanvas" not in payload or "survey_konsumen" not in payload:
+        return False, "Webhook Apps Script belum diperbarui untuk fitur restore. Silakan deploy ulang GoogleAppsScript.gs."
+
+    kanvas_rows = payload.get("kanvas") or []
+    survey_rows = payload.get("survey_konsumen") or []
+
+    kanvas_cols = ["id", "tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS.keys(), "waktu_submit"]
+    survey_cols = [
+        "id", "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
+        "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
+        "tahu_76_aksara", "sumber_info_76_aksara",
+        *SURVEY_FEEDBACK_FIELDS.values(),
+    ]
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("DELETE FROM kanvas")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='kanvas'")
+        for idx, row in enumerate(kanvas_rows, start=1):
+            if not isinstance(row, dict):
+                continue
+            if not str(row.get("tanggal", "")).strip() and not str(row.get("nama_promotor", "")).strip():
+                continue
+            row_id = _safe_int(row.get("id"), default=idx)
+            values = [
+                row_id,
+                str(row.get("tanggal", "")).strip(),
+                str(row.get("nama_promotor", "")).strip(),
+                str(row.get("zona", "")).strip(),
+                str(row.get("brand", "")).strip(),
+                *[_safe_int(row.get(k), 0) for k in FIELD_LABELS.keys()],
+                str(row.get("waktu_submit", "")).strip(),
+            ]
+            conn.execute(
+                f"INSERT OR REPLACE INTO kanvas ({', '.join(kanvas_cols)}) VALUES ({', '.join('?' for _ in kanvas_cols)})",
+                values,
+            )
+
+        conn.execute("DELETE FROM survey_konsumen")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='survey_konsumen'")
+        for idx, row in enumerate(survey_rows, start=1):
+            if not isinstance(row, dict):
+                continue
+            if not str(row.get("waktu_survey", "")).strip() and not str(row.get("nama_konsumen", "")).strip():
+                continue
+            row_id = _safe_int(row.get("id"), default=idx)
+            values = [
+                row_id,
+                str(row.get("waktu_survey", "")).strip(),
+                str(row.get("nama_promotor", "")).strip(),
+                str(row.get("sektor_survey", "")).strip(),
+                str(row.get("nama_konsumen", "")).strip(),
+                str(row.get("range_usia_konsumen", "")).strip(),
+                str(row.get("pekerjaan_konsumen", "")).strip(),
+                str(row.get("bumo_rokok_konsumen", "")).strip(),
+                str(row.get("tahu_76_aksara", "")).strip(),
+                str(row.get("sumber_info_76_aksara", "")).strip(),
+                *[str(row.get(col, "") or "").strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
+            ]
+            conn.execute(
+                f"INSERT OR REPLACE INTO survey_konsumen ({', '.join(survey_cols)}) VALUES ({', '.join('?' for _ in survey_cols)})",
+                values,
+            )
+
+    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."
+
+
 def load_data():
     with sqlite3.connect(DB_NAME) as conn:
         return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
@@ -215,9 +305,13 @@ def load_survey_data():
 def save_report(data):
     columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS, "waktu_submit"]
     with sqlite3.connect(DB_NAME) as conn:
-        conn.execute(f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})", [data[key] for key in columns])
+        cursor = conn.execute(
+            f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
+            [data[key] for key in columns],
+        )
+        data_with_id = {"id": int(cursor.lastrowid), **data}
     try:
-        requests.post(WEBHOOK_URL, json=data, timeout=10).raise_for_status()
+        requests.post(WEBHOOK_URL, json=data_with_id, timeout=10).raise_for_status()
     except requests.RequestException:
         pass
 
@@ -319,7 +413,7 @@ def report_form():
             save_report(report)
             st.session_state["form_preview_data"] = None
             st.session_state["entry_form_version"] = version + 1
-            st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database! Form entry telah dikosongkan."
+            st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil dikirim ke database & sheet DataKanvasAksara! Form entry telah dikosongkan."
         st.rerun()
 
     pending = st.session_state.get("form_preview_data")
@@ -336,7 +430,7 @@ def report_form():
                 save_report(pending)
                 st.session_state["form_preview_data"] = None
                 st.session_state["entry_form_version"] = version + 1
-                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil disimpan ke database! Form entry telah dikosongkan."
+                st.session_state["notifikasi_sukses"] = "🎉 Data laporan kanvas berhasil disimpan ke database & sheet DataKanvasAksara! Form entry telah dikosongkan."
                 st.rerun()
 
 
@@ -745,32 +839,62 @@ def management_page(df, today):
         st.rerun()
 
 
-def backup_page(df):
-    st.title("☁️ Backup Data ke Google Sheets")
+def backup_restore_page(df):
+    st.title("☁️ Backup & Restore Google Sheets")
     if "backup_authenticated" not in st.session_state:
         st.session_state["backup_authenticated"] = False
     if not st.session_state["backup_authenticated"]:
         with st.form("backup_login"):
             password = st.text_input("Password Admin:", type="password")
-            login = st.form_submit_button("🔓 Buka Menu Backup", type="primary")
+            login = st.form_submit_button("🔓 Buka Menu Backup & Restore", type="primary")
         if login:
             if password == ADMIN_PASSWORD:
                 st.session_state["backup_authenticated"] = True
                 st.rerun()
             st.error("❌ Password salah!")
         return
-    if st.button("🔒 Kunci Menu Backup"):
+
+    if st.button("🔒 Kunci Menu Backup & Restore"):
         st.session_state["backup_authenticated"] = False
         st.rerun()
-    st.write("Gunakan tombol di bawah ini untuk sinkronisasi atau backup ulang seluruh data lokal ke Google Sheets.")
-    if st.button("🔄 Kirim/Backup Semua Data ke Google Sheets", type="primary"):
+
+    st.markdown("---")
+    st.subheader("📥 Restore Data dari Google Sheets")
+    st.write(
+        "Menarik ulang seluruh data **Laporan Kanvas** (`DataKanvasAksara`) dan **Survey Konsumen** (`SurveyKonsumen`) "
+        "dari Google Sheets ke database lokal aplikasi."
+    )
+    confirm_restore = st.checkbox(
+        "Saya memahami bahwa database lokal saat ini akan ditimpa dengan data terbaru dari Google Sheets.",
+        key="confirm_manual_restore",
+    )
+    if st.button("📥 Restore Sekarang dari Google Sheets", type="primary", disabled=not confirm_restore):
+        with st.spinner("Sedang mengambil data dari Google Sheets..."):
+            ok, msg = restore_from_google_sheets()
+        if ok:
+            st.session_state["last_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state["notifikasi_sukses"] = f"✅ {msg}"
+            st.rerun()
+        else:
+            st.error(f"❌ {msg}")
+
+    st.markdown("---")
+    st.subheader("📤 Backup Data Lokal ke Google Sheets")
+    st.write("Gunakan tombol di bawah ini untuk mengirim ulang seluruh data Laporan Kanvas lokal ke sheet **`DataKanvasAksara`**.")
+    if st.button("🔄 Kirim/Backup Semua Data Kanvas ke Google Sheets", type="secondary"):
         if df.empty:
             st.info("📭 Belum ada data di database lokal untuk di-backup.")
             return
         progress = st.progress(0)
         succeeded = 0
         for index, row in df.iterrows():
-            payload = {"id": int(row["ID"]), "tanggal": str(row["Tanggal"]), "nama_promotor": str(row["Nama Promotor"]), "zona": str(row["Zona"]), "brand": str(row["Brand"])}
+            payload = {
+                "id": int(row["ID"]),
+                "tanggal": str(row["Tanggal"]),
+                "nama_promotor": str(row["Nama Promotor"]),
+                "zona": str(row["Zona"]),
+                "brand": str(row["Brand"]),
+            }
             for key, label in FIELD_LABELS.items():
                 payload[key] = int(row[label] or 0)
             payload["waktu_submit"] = str(row["Waktu Submit"])
@@ -781,17 +905,35 @@ def backup_page(df):
             except requests.RequestException:
                 pass
             progress.progress((index + 1) / len(df))
-        st.success(f"✅ Berhasil mem-backup {succeeded} dari {len(df)} data ke Google Sheets!")
+        st.success(f"✅ Berhasil mem-backup {succeeded} dari {len(df)} data ke sheet DataKanvasAksara!")
 
 
 init_db()
+
+# Auto-restore setiap kali aplikasi dibuka atau halaman di-refresh
+if "initial_restore_done" not in st.session_state:
+    with st.spinner("Menyinkronkan data terbaru dari Google Sheets..."):
+        ok, msg = restore_from_google_sheets()
+    st.session_state["initial_restore_done"] = True
+    st.session_state["initial_restore_status"] = (ok, msg)
+    if ok:
+        st.session_state["last_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
+
 now = datetime.now(TZ_WIB)
 today = now.strftime("%Y-%m-%d")
+
 if "notifikasi_sukses" in st.session_state:
     st.balloons()
     st.success(st.session_state.pop("notifikasi_sukses"))
 if "notifikasi_error" in st.session_state:
     st.error(st.session_state.pop("notifikasi_error"))
+
+# Status sinkronisasi otomatis di sidebar
+restore_ok, restore_msg = st.session_state.get("initial_restore_status", (False, ""))
+if restore_ok:
+    st.sidebar.caption(f"🟢 Sync Google Sheets: {st.session_state.get('last_restore_time', '-')}")
+elif restore_msg:
+    st.sidebar.warning(f"⚠️ Auto-restore gagal: {restore_msg}")
 
 if st.session_state.get("active_page", "Laporan Kanvas") == "Survey Konsumen":
     st.sidebar.title("🗣️ Survey Konsumen")
@@ -812,12 +954,13 @@ else:
         "Manajemen Data (Edit, Unduh, & Hapus)",
         "Rekapitulasi Harian & Mingguan (Report Table)",
         "Panel Admin & Log Laporan Kanvas (Semua Data)",
-        "Backup Data ke Google Sheets",
+        "Backup & Restore Google Sheets",
     ])
     st.sidebar.markdown("---")
     if st.sidebar.button("🗣️ Survey Konsumen", key="open_consumer_survey"):
         st.session_state["active_page"] = "Survey Konsumen"
         st.rerun()
+
 if menu == "Form Entry Laporan Kanvas":
     st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
@@ -839,5 +982,5 @@ elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
     recap_page(load_data())
 elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)":
     log_page(load_data())
-elif menu == "Backup Data ke Google Sheets":
-    backup_page(load_data())
+elif menu == "Backup & Restore Google Sheets":
+    backup_restore_page(load_data())
