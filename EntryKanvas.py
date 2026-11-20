@@ -17,7 +17,7 @@ from PIL import Image as PILImage
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
 BRAND_DATA_FILE = "Merk_Rokok_All_Pabrikan_&_Nama_Karyawan.json"
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxQo1RhqgAoGrZFmwzobcLfOxnR7S_g7kj0S2RHTS4czCm1fA3HqvHdebcinBLlYq8/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyh3rrI1FdpgLxDCRB_ZCo_Rs3-qzZ73g-EW3lZ3UWgwKJla3PYEHfJpCylGVTtm8_2/exec"
 ADMIN_PASSWORD = "admin123"
 
 PROMOTOR_ZONA = {
