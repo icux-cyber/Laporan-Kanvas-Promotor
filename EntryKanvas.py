@@ -191,20 +191,30 @@ def _safe_int(value, default=0):
 def restore_from_google_sheets():
     """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets dan menimpa database lokal."""
     try:
-        response = requests.get(WEBHOOK_URL, params={"action": "restore"}, timeout=20)
+        response = requests.get(
+            WEBHOOK_URL,
+            params={"action": "restore", "_ts": int(datetime.now(TZ_WIB).timestamp())},
+            timeout=25,
+        )
         response.raise_for_status()
-        payload = response.json()
     except requests.RequestException as err:
         return False, f"Gagal menghubungi Google Sheets: {err}"
-    except ValueError:
-        return False, "Respons dari Google Sheets bukan JSON yang valid."
 
-    if not isinstance(payload, dict) or payload.get("status") != "success":
-        msg = payload.get("message", "Gagal mengambil data dari Google Sheets.") if isinstance(payload, dict) else "Format respons tidak sesuai."
-        return False, msg
+    raw_text = response.text or ""
+    try:
+        payload = response.json()
+    except ValueError:
+        return False, f"Respons bukan JSON (HTTP {response.status_code}): {raw_text[:250]}"
+
+    if not isinstance(payload, dict):
+        return False, f"Format JSON tidak berupa object: {raw_text[:250]}"
+
+    if payload.get("status") != "success":
+        msg = payload.get("message", "Gagal mengambil data dari Google Sheets.")
+        return False, f"{msg} | Payload: {str(payload)[:250]}"
 
     if "kanvas" not in payload or "survey_konsumen" not in payload:
-        return False, "Webhook Apps Script belum diperbarui untuk fitur restore. Silakan deploy ulang GoogleAppsScript.gs."
+        return False, f"Key 'kanvas'/'survey_konsumen' tidak ada. Key yang diterima: {list(payload.keys())}"
 
     kanvas_rows = payload.get("kanvas") or []
     survey_rows = payload.get("survey_konsumen") or []
@@ -266,10 +276,7 @@ def restore_from_google_sheets():
                 values,
             )
 
-    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."
-
-
-def load_data():
+    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."def load_data():
     with sqlite3.connect(DB_NAME) as conn:
         return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
             nama_promotor AS [Nama Promotor], zona AS Zona, brand AS Brand,
