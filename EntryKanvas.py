@@ -107,16 +107,16 @@ div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 
 @st.cache_data
 def load_bumo_options():
     if not os.path.exists(BRAND_DATA_FILE):
-        return ["Lainnya"]
+        return ["", "Lainnya"]
     try:
         with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
             payload = json.load(file)
     except (OSError, json.JSONDecodeError):
-        return ["Lainnya"]
+        return ["", "Lainnya"]
 
     raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
-    unique_brands = []
-    seen = set()
+    unique_brands = [""]
+    seen = {""}
     for item in raw_brands:
         if isinstance(item, str):
             cleaned = item.strip()
@@ -376,7 +376,11 @@ def consumer_survey_entry_page():
     )
     pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
     bumo = st.selectbox(
-        "BUMO Rokok Konsumen", bumo_options, key=f"survey_bumo_{version}",
+        "BUMO Rokok Konsumen",
+        bumo_options,
+        index=0,
+        format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+        key=f"survey_bumo_{version}",
     )
 
     st.markdown("#### 📢 Awareness Djarum 76 Aksara")
