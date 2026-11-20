@@ -366,8 +366,13 @@ def consumer_survey_entry_page():
     version = st.session_state.get("survey_form_version", 0)
     bumo_options = load_bumo_options()
 
+    promoter_options = [""] + list(PROMOTOR_ZONA)
     nama_promotor = st.selectbox(
-        "Nama Promotor", list(PROMOTOR_ZONA), key=f"survey_promoter_{version}",
+        "Nama Promotor",
+        promoter_options,
+        index=0,
+        format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+        key=f"survey_promoter_{version}",
     )
     sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
     nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
