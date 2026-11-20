@@ -71,7 +71,7 @@ PROMOTION_KEYS = [
     "promsus_n_mie_instan", "outlet_buka_ecer", "jumlah_rokok_sampling",
     "jumlah_konsumen_trial", "direct_selling",
 ]
-SURVEY_AGE_RANGES = ["18-25 Tahun", "25-30 Tahun", "31-35 Tahun", "+35 Tahun"]
+SURVEY_AGE_RANGES = ["18-24 Tahun", "25-30 Tahun", "31-34 Tahun", "35-40 Tahun","40+ Tahun"]
 SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
 SURVEY_AWARENESS_SOURCES = [
     "Papan Reklame",
@@ -540,10 +540,10 @@ def survey_monitoring_page():
     age_values = survey_df["Range Umur Konsumen"].fillna("").astype(str).str.strip()
     age_values = age_values.replace("", "Tidak diisi")
     age_aliases = {
-        "18-25": "18-25 Tahun",
+        "18-24": "18-24 Tahun",
         "25-30": "25-30 Tahun",
-        "31-35": "31-35 Tahun",
-        "+35": "+35 Tahun",
+        "31-34": "31-34 Tahun",
+        "35+": "35+ Tahun",
     }
     age_counts = age_values.replace(age_aliases).value_counts()
     ordered_ages = [age for age in SURVEY_AGE_RANGES if age in age_counts.index]
