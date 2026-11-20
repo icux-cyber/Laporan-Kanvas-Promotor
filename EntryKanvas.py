@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import BytesIO
+import json
 import os
 import sqlite3
 
@@ -15,6 +16,7 @@ from PIL import Image as PILImage
 
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
+BRAND_DATA_FILE = "Merk_Rokok_All_Pabrikan_&_Nama_Karyawan.json"
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxQo1RhqgAoGrZFmwzobcLfOxnR7S_g7kj0S2RHTS4czCm1fA3HqvHdebcinBLlYq8/exec"
 ADMIN_PASSWORD = "admin123"
 
@@ -37,7 +39,7 @@ PROMOTOR_ZONA = {
     "Rendi Wahyudi": "Sawahan", "Arik Setiawan": "Tandes",
     "Syarif Usman Fadholi": "Tandes", "Surya Wisnu Wibisono": "Tandes",
     "Eko Sucipto": "Tandes",
-    "Indra Fredi Wibowo" : "Tandes",
+    "Indra Fredi Wibowo": "Tandes",
 }
 
 FIELD_LABELS = {
@@ -70,14 +72,21 @@ PROMOTION_KEYS = [
     "jumlah_konsumen_trial", "direct_selling",
 ]
 SURVEY_AGE_RANGES = ["18-25 Tahun", "25-30 Tahun", "31-35 Tahun", "+35 Tahun"]
-SURVEY_ASPECTS = ["Rasa", "Hisapan", "Harga", "Kemasan", "Lainnya"]
+SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
+SURVEY_AWARENESS_SOURCES = [
+    "Papan Reklame",
+    "Iklan di TV",
+    "Media Sosial (Facebook, IG, TikTok, dll)",
+]
 SURVEY_FEEDBACK_FIELDS = {
     "Komentar Positif - Rasa": "komentar_positif_rasa",
+    "Komentar Positif - Aroma": "komentar_positif_aroma",
     "Komentar Positif - Hisapan": "komentar_positif_hisapan",
     "Komentar Positif - Harga": "komentar_positif_harga",
     "Komentar Positif - Kemasan": "komentar_positif_kemasan",
     "Komentar Positif - Lainnya": "komentar_positif_lainnya",
     "Komentar Negatif - Rasa": "komentar_negatif_rasa",
+    "Komentar Negatif - Aroma": "komentar_negatif_aroma",
     "Komentar Negatif - Hisapan": "komentar_negatif_hisapan",
     "Komentar Negatif - Harga": "komentar_negatif_harga",
     "Komentar Negatif - Kemasan": "komentar_negatif_kemasan",
@@ -93,6 +102,30 @@ h1, h2, h3 { color: #0f172a; font-family: 'Helvetica Neue', Helvetica, Arial, sa
 div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
 </style>
 """, unsafe_allow_html=True)
+
+
+@st.cache_data
+def load_bumo_options():
+    if not os.path.exists(BRAND_DATA_FILE):
+        return ["Lainnya"]
+    try:
+        with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return ["Lainnya"]
+
+    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
+    unique_brands = []
+    seen = set()
+    for item in raw_brands:
+        if isinstance(item, str):
+            cleaned = item.strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                unique_brands.append(cleaned)
+    if "Lainnya" not in seen:
+        unique_brands.append("Lainnya")
+    return unique_brands
 
 
 def init_db():
@@ -112,9 +145,14 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT, waktu_survey TEXT NOT NULL,
             nama_promotor TEXT NOT NULL, sektor_survey TEXT, nama_konsumen TEXT,
             range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
-            bumo_rokok_konsumen TEXT, komentar_positif TEXT, komentar_negatif TEXT
+            bumo_rokok_konsumen TEXT, tahu_76_aksara TEXT, sumber_info_76_aksara TEXT,
+            komentar_positif TEXT, komentar_negatif TEXT
         )""")
         survey_columns = {row[1] for row in conn.execute("PRAGMA table_info(survey_konsumen)")}
+        for extra_col in ("tahu_76_aksara", "sumber_info_76_aksara"):
+            if extra_col not in survey_columns:
+                conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {extra_col} TEXT")
+                survey_columns.add(extra_col)
         legacy_comments = {
             "komentar_positif_lainnya": "komentar_positif",
             "komentar_negatif_lainnya": "komentar_negatif",
@@ -168,6 +206,8 @@ def load_survey_data():
             nama_konsumen AS [Nama Konsumen], range_usia_konsumen AS [Range Umur Konsumen],
             pekerjaan_konsumen AS [Pekerjaan Konsumen],
             bumo_rokok_konsumen AS [BUMO Rokok Konsumen],
+            tahu_76_aksara AS [Mengetahui Djarum 76 Aksara],
+            sumber_info_76_aksara AS [Sumber Info Djarum 76 Aksara],
             {feedback_columns}
             FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
 
@@ -229,8 +269,6 @@ def sync_survey_to_sheets(action, survey):
 
 def report_form():
     st.subheader("📝 Masukkan Data Laporan Baru")
-    # Changing the form version resets all widget values after a saved entry,
-    # while previewing or cancelling leaves the current input intact.
     version = st.session_state.get("entry_form_version", 0)
     with st.form("form_laporan_kanvas"):
         c1, c2 = st.columns(2)
@@ -326,17 +364,39 @@ def daily_status(df, today):
 def consumer_survey_entry_page():
     st.title("📝 Entry Survey Konsumen")
     version = st.session_state.get("survey_form_version", 0)
+    bumo_options = load_bumo_options()
+
+    nama_promotor = st.selectbox(
+        "Nama Promotor", list(PROMOTOR_ZONA), key=f"survey_promoter_{version}",
+    )
+    sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
+    nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
+    range_usia = st.selectbox(
+        "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
+    )
+    pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
+    bumo = st.selectbox(
+        "BUMO Rokok Konsumen", bumo_options, key=f"survey_bumo_{version}",
+    )
+
+    st.markdown("#### 📢 Awareness Djarum 76 Aksara")
+    tahu_76_aksara = st.radio(
+        "Apakah anda pernah mengetahui Djarum 76 Aksara?",
+        ["Tidak", "Ya"],
+        horizontal=True,
+        key=f"survey_tahu_76_aksara_{version}",
+    )
+    if tahu_76_aksara == "Ya":
+        sumber_info_list = st.multiselect(
+            "Kalau iya melihatnya dari mana?",
+            SURVEY_AWARENESS_SOURCES,
+            key=f"survey_sumber_76_aksara_{version}",
+        )
+        sumber_info_str = ", ".join(sumber_info_list)
+    else:
+        sumber_info_str = ""
+
     with st.form(f"form_survey_konsumen_{version}"):
-        nama_promotor = st.selectbox(
-            "Nama Promotor", list(PROMOTOR_ZONA), key=f"survey_promoter_{version}",
-        )
-        sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
-        nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
-        range_usia = st.selectbox(
-            "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
-        )
-        pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
-        bumo = st.text_input("BUMO Rokok Konsumen", key=f"survey_bumo_{version}")
         positive_comments = {}
         negative_comments = {}
         positive_column, negative_column = st.columns(2)
@@ -363,12 +423,14 @@ def consumer_survey_entry_page():
         columns = [
             "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
             "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
+            "tahu_76_aksara", "sumber_info_76_aksara",
             *SURVEY_FEEDBACK_FIELDS.values(),
         ]
         values = [
             datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
             nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
-            range_usia, pekerjaan.strip(), bumo.strip(),
+            range_usia, pekerjaan.strip(), bumo,
+            tahu_76_aksara, sumber_info_str,
             *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
         ]
         with sqlite3.connect(DB_NAME) as conn:
