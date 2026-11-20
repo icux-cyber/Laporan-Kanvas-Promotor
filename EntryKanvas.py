@@ -276,7 +276,9 @@ def restore_from_google_sheets():
                 values,
             )
 
-    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."def load_data():
+    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."
+    
+def load_data():
     with sqlite3.connect(DB_NAME) as conn:
         return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
             nama_promotor AS [Nama Promotor], zona AS Zona, brand AS Brand,
