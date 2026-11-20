@@ -17,7 +17,7 @@ from PIL import Image as PILImage
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
 BRAND_DATA_FILE = "Merk_Rokok_All_Pabrikan_&_Nama_Karyawan.json"
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyh3rrI1FdpgLxDCRB_ZCo_Rs3-qzZ73g-EW3lZ3UWgwKJla3PYEHfJpCylGVTtm8_2/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxVkAX8OS75xtP6rubt-2EQf2UNllgGdzn_NPuSnYrEWvEB0epWHDmtu5z34RQxvYrW/exec"
 ADMIN_PASSWORD = "admin123"
 
 PROMOTOR_ZONA = {
@@ -277,7 +277,8 @@ def restore_from_google_sheets():
             )
 
     return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."
-    
+
+
 def load_data():
     with sqlite3.connect(DB_NAME) as conn:
         return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
@@ -889,15 +890,14 @@ def backup_restore_page(df):
 
     st.markdown("---")
     st.subheader("📤 Backup Data Lokal ke Google Sheets")
-    st.write("Gunakan tombol di bawah ini untuk mengirim ulang seluruh data Laporan Kanvas lokal ke sheet **`DataKanvasAksara`**.")
+    st.write("Gunakan tombol di bawah ini untuk menimpa seluruh data di sheet **`DataKanvasAksara`** dengan data laporan kanvas lokal.")
     if st.button("🔄 Kirim/Backup Semua Data Kanvas ke Google Sheets", type="secondary"):
         if df.empty:
             st.info("📭 Belum ada data di database lokal untuk di-backup.")
             return
-        progress = st.progress(0)
-        succeeded = 0
-        for index, row in df.iterrows():
-            payload = {
+        rows_payload = []
+        for _, row in df.iterrows():
+            item = {
                 "id": int(row["ID"]),
                 "tanggal": str(row["Tanggal"]),
                 "nama_promotor": str(row["Nama Promotor"]),
@@ -905,16 +905,27 @@ def backup_restore_page(df):
                 "brand": str(row["Brand"]),
             }
             for key, label in FIELD_LABELS.items():
-                payload[key] = int(row[label] or 0)
-            payload["waktu_submit"] = str(row["Waktu Submit"])
-            try:
-                response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
-                if response.status_code == 200:
-                    succeeded += 1
-            except requests.RequestException:
-                pass
-            progress.progress((index + 1) / len(df))
-        st.success(f"✅ Berhasil mem-backup {succeeded} dari {len(df)} data ke sheet DataKanvasAksara!")
+                item[key] = int(row[label] or 0)
+            item["waktu_submit"] = str(row["Waktu Submit"])
+            rows_payload.append(item)
+
+        payload = {
+            "type": "kanvas_backup",
+            "action": "replace_all",
+            "rows": rows_payload,
+        }
+        try:
+            response = requests.post(WEBHOOK_URL, json=payload, timeout=25)
+            response.raise_for_status()
+            res_json = response.json()
+            if isinstance(res_json, dict) and res_json.get("status") == "success":
+                st.success(f"✅ Berhasil menimpa & mem-backup {len(rows_payload)} data ke sheet DataKanvasAksara!")
+            else:
+                st.error(f"❌ Backup gagal: {res_json}")
+        except requests.RequestException as err:
+            st.error(f"❌ Gagal menghubungi Google Sheets: {err}")
+        except ValueError:
+            st.error("❌ Respons backup dari Google Sheets bukan JSON yang valid.")
 
 
 init_db()
