@@ -892,22 +892,20 @@ def backup_restore_page(df):
     st.subheader("📤 Backup Data Lokal ke Google Sheets")
     st.write("Gunakan tombol di bawah ini untuk menimpa seluruh data di sheet **`DataKanvasAksara`** dengan data laporan kanvas lokal.")
     if st.button("🔄 Kirim/Backup Semua Data Kanvas ke Google Sheets", type="secondary"):
-        if df.empty:
-            st.info("📭 Belum ada data di database lokal untuk di-backup.")
-            return
         rows_payload = []
-        for _, row in df.iterrows():
-            item = {
-                "id": int(row["ID"]),
-                "tanggal": str(row["Tanggal"]),
-                "nama_promotor": str(row["Nama Promotor"]),
-                "zona": str(row["Zona"]),
-                "brand": str(row["Brand"]),
-            }
-            for key, label in FIELD_LABELS.items():
-                item[key] = int(row[label] or 0)
-            item["waktu_submit"] = str(row["Waktu Submit"])
-            rows_payload.append(item)
+        if not df.empty:
+            for _, row in df.iterrows():
+                item = {
+                    "id": int(row["ID"]),
+                    "tanggal": str(row["Tanggal"]),
+                    "nama_promotor": str(row["Nama Promotor"]),
+                    "zona": str(row["Zona"]),
+                    "brand": str(row["Brand"]),
+                }
+                for key, label in FIELD_LABELS.items():
+                    item[key] = int(row[label] or 0)
+                item["waktu_submit"] = str(row["Waktu Submit"])
+                rows_payload.append(item)
 
         payload = {
             "type": "kanvas_backup",
@@ -926,7 +924,6 @@ def backup_restore_page(df):
             st.error(f"❌ Gagal menghubungi Google Sheets: {err}")
         except ValueError:
             st.error("❌ Respons backup dari Google Sheets bukan JSON yang valid.")
-
 
 init_db()
 
