@@ -122,17 +122,18 @@ function readSheetAsObjects(sheetName, expectedHeaders) {
 
 function doGet(e) {
   try {
-    var action = (e && e.parameter && e.parameter.action)
-      ? String(e.parameter.action).trim().toLowerCase()
-      : "";
+    var params = (e && e.parameter) ? e.parameter : {};
+    var action = params.action ? String(params.action).trim().toLowerCase() : "";
+    var mode = params.mode ? String(params.mode).trim().toLowerCase() : "";
 
-    if (action === "restore") {
+    if (action === "restore" || mode === "restore") {
       var kanvasData = readSheetAsObjects(SHEET_KANVAS, KANVAS_HEADERS);
       var surveyData = readSheetAsObjects(SHEET_SURVEY, SURVEY_HEADERS);
 
       return sendJson({
         status: "success",
         survey_sync_version: 1,
+        debug_params: params,
         kanvas: kanvasData,
         survey_konsumen: surveyData
       });
@@ -141,7 +142,8 @@ function doGet(e) {
     return sendJson({
       status: "success",
       survey_sync_version: 1,
-      message: "Webhook Apps Script aktif."
+      debug_params: params,
+      message: "Webhook Google Apps Script aktif."
     });
   } catch (err) {
     return sendJson({
