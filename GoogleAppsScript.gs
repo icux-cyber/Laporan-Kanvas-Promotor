@@ -1,151 +1,245 @@
-function jsonResponse(payload) {
-  return ContentService.createTextOutput(JSON.stringify(payload))
+var SHEET_KANVAS = "DataKanvasAksara";
+var SHEET_SURVEY = "SurveyKonsumen";
+
+var KANVAS_HEADERS = [
+  "id",
+  "tanggal",
+  "nama_promotor",
+  "zona",
+  "brand",
+  "canvas_plan",
+  "outlet_beli_ada",
+  "outlet_ks_tb",
+  "outlet_ks_b",
+  "outlet_tb_ada_a",
+  "outlet_tb_ada_p",
+  "outlet_tb_ks",
+  "omset_bungkus",
+  "promsus_10_1",
+  "promsus_3_1",
+  "promsus_2_1",
+  "promsus_1_1",
+  "promsus_n_mie_instan",
+  "outlet_buka_ecer",
+  "jumlah_rokok_sampling",
+  "jumlah_konsumen_trial",
+  "direct_selling",
+  "waktu_submit"
+];
+
+var SURVEY_HEADERS = [
+  "id",
+  "waktu_survey",
+  "nama_promotor",
+  "sektor_survey",
+  "nama_konsumen",
+  "range_usia_konsumen",
+  "pekerjaan_konsumen",
+  "bumo_rokok_konsumen",
+  "tahu_76_aksara",
+  "sumber_info_76_aksara",
+  "komentar_positif_rasa",
+  "komentar_positif_aroma",
+  "komentar_positif_hisapan",
+  "komentar_positif_harga",
+  "komentar_positif_kemasan",
+  "komentar_positif_lainnya",
+  "komentar_negatif_rasa",
+  "komentar_negatif_aroma",
+  "komentar_negatif_hisapan",
+  "komentar_negatif_harga",
+  "komentar_negatif_kemasan",
+  "komentar_negatif_lainnya"
+];
+
+function sendJson(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function formatCellValue(val, isDateOnly) {
+  if (val === null || val === undefined) return "";
+  if (Object.prototype.toString.call(val) === "[object Date]" && !isNaN(val.getTime())) {
+    var tz = Session.getScriptTimeZone() || "Asia/Jakarta";
+    return Utilities.formatDate(val, tz, isDateOnly ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm:ss");
+  }
+  return val;
+}
+
+function ensureSheetWithHeaders(sheetName, headers) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  return sheet;
+}
+
+function readSheetAsObjects(sheetName, expectedHeaders) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return [];
+  }
+
+  var lastCol = Math.max(sheet.getLastColumn(), expectedHeaders.length);
+  var rawHeaders = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var headerMap = {};
+  for (var c = 0; c < rawHeaders.length; c++) {
+    var h = String(rawHeaders[c] || "").trim();
+    if (h) {
+      headerMap[h] = c;
+    }
+  }
+
+  var numRows = sheet.getLastRow() - 1;
+  var dataGrid = sheet.getRange(2, 1, numRows, lastCol).getValues();
+  var results = [];
+
+  for (var r = 0; r < dataGrid.length; r++) {
+    var rowVals = dataGrid[r];
+    var isAllEmpty = rowVals.every(function (cell) {
+      return cell === "" || cell === null || cell === undefined;
+    });
+    if (isAllEmpty) continue;
+
+    var item = {};
+    for (var k = 0; k < expectedHeaders.length; k++) {
+      var key = expectedHeaders[k];
+      var colIdx = headerMap.hasOwnProperty(key) ? headerMap[key] : k;
+      var rawVal = colIdx < rowVals.length ? rowVals[colIdx] : "";
+      item[key] = formatCellValue(rawVal, key === "tanggal");
+    }
+    results.push(item);
+  }
+
+  return results;
+}
+
+function doGet(e) {
+  try {
+    var action = (e && e.parameter && e.parameter.action)
+      ? String(e.parameter.action).trim().toLowerCase()
+      : "";
+
+    if (action === "restore") {
+      var kanvasData = readSheetAsObjects(SHEET_KANVAS, KANVAS_HEADERS);
+      var surveyData = readSheetAsObjects(SHEET_SURVEY, SURVEY_HEADERS);
+
+      return sendJson({
+        status: "success",
+        survey_sync_version: 1,
+        kanvas: kanvasData,
+        survey_konsumen: surveyData
+      });
+    }
+
+    return sendJson({
+      status: "success",
+      survey_sync_version: 1,
+      message: "Webhook Apps Script aktif."
+    });
+  } catch (err) {
+    return sendJson({
+      status: "error",
+      message: "Error di doGet: " + err.message
+    });
+  }
 }
 
 function doPost(e) {
   try {
     if (!e || !e.postData || !e.postData.contents) {
-      return jsonResponse({
+      return sendJson({
         status: "error",
-        message: "Permintaan tidak valid atau postData kosong."
+        message: "Body request kosong."
       });
     }
 
-    var data = JSON.parse(e.postData.contents);
-    if (data.type === "survey_konsumen") {
-      return handleSurveyRequest(data);
+    var payload = JSON.parse(e.postData.contents);
+    if (payload.type === "survey_konsumen") {
+      return processSurveyPost(payload);
     }
 
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DataKanvas");
-    if (!sheet) {
-      return jsonResponse({
-        status: "error",
-        message: "Tab 'DataKanvas' tidak ditemukan di Google Sheets."
-      });
-    }
+    var kanvasSheet = ensureSheetWithHeaders(SHEET_KANVAS, KANVAS_HEADERS);
+    var newRow = KANVAS_HEADERS.map(function (col) {
+      return (payload[col] === undefined || payload[col] === null) ? "" : payload[col];
+    });
+    kanvasSheet.appendRow(newRow);
 
-    sheet.appendRow([
-      data.id,
-      data.tanggal,
-      data.nama_promotor,
-      data.zona,
-      data.brand,
-      data.canvas_plan,
-      data.outlet_beli_ada,
-      data.outlet_ks_tb,
-      data.outlet_ks_b,
-      data.outlet_tb_ada_a,
-      data.outlet_tb_ada_p,
-      data.outlet_tb_ks,
-      data.omset_bungkus,
-      data.promsus_10_1,
-      data.promsus_3_1,
-      data.promsus_2_1,
-      data.promsus_1_1,
-      data.promsus_n_mie_instan,
-      data.outlet_buka_ecer,
-      data.jumlah_rokok_sampling,
-      data.jumlah_konsumen_trial,
-      data.direct_selling,
-      data.waktu_submit
-    ]);
-
-    return jsonResponse({ status: "success", message: "Data berhasil disimpan." });
-  } catch (error) {
-    return jsonResponse({ status: "error", message: error.toString() });
+    return sendJson({
+      status: "success",
+      message: "Data kanvas tersimpan ke " + SHEET_KANVAS + "."
+    });
+  } catch (err) {
+    return sendJson({
+      status: "error",
+      message: "Error di doPost: " + err.message
+    });
   }
 }
 
-function handleSurveyRequest(data) {
-  var headers = [
-    "id",
-    "waktu_survey",
-    "nama_promotor",
-    "sektor_survey",
-    "nama_konsumen",
-    "range_usia_konsumen",
-    "pekerjaan_konsumen",
-    "bumo_rokok_konsumen",
-    "tahu_76_aksara",
-    "sumber_info_76_aksara",
-    "komentar_positif_rasa",
-    "komentar_positif_aroma",
-    "komentar_positif_hisapan",
-    "komentar_positif_harga",
-    "komentar_positif_kemasan",
-    "komentar_positif_lainnya",
-    "komentar_negatif_rasa",
-    "komentar_negatif_aroma",
-    "komentar_negatif_hisapan",
-    "komentar_negatif_harga",
-    "komentar_negatif_kemasan",
-    "komentar_negatif_lainnya"
-  ];
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = spreadsheet.getSheetByName("SurveyKonsumen");
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet("SurveyKonsumen");
-  }
+function processSurveyPost(payload) {
+  var surveySheet = ensureSheetWithHeaders(SHEET_SURVEY, SURVEY_HEADERS);
 
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(headers);
-  } else {
-    var existingHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-    if (existingHeaders.every(function (header) { return header === ""; })) {
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    } else if (headers.some(function (header, index) {
-      return existingHeaders[index] !== header;
-    })) {
-      throw new Error("Header tab 'SurveyKonsumen' tidak sesuai.");
-    }
-  }
-
-  if (data.id === undefined || data.id === null || String(data.id).trim() === "") {
-    throw new Error("ID survey wajib diisi.");
-  }
-  var surveyId = String(data.id);
-  var lastRow = sheet.getLastRow();
-  var matchingRow = -1;
-  if (lastRow > 1) {
-    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
-    matchingRow = ids.findIndex(function (row) {
-      return String(row[0]).trim() === surveyId;
+  if (payload.id === undefined || payload.id === null || String(payload.id).trim() === "") {
+    return sendJson({
+      status: "error",
+      type: "survey_konsumen",
+      action: payload.action || "",
+      message: "ID survey wajib diisi."
     });
   }
 
-  if (data.action === "delete") {
-    if (matchingRow !== -1) {
-      sheet.deleteRow(matchingRow + 2);
+  var targetId = String(payload.id).trim();
+  var foundRowIndex = -1;
+  var lastRow = surveySheet.getLastRow();
+
+  if (lastRow > 1) {
+    var idCells = surveySheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+    for (var i = 0; i < idCells.length; i++) {
+      if (String(idCells[i][0]).trim() === targetId) {
+        foundRowIndex = i + 2;
+        break;
+      }
     }
-    return jsonResponse({
+  }
+
+  if (payload.action === "delete") {
+    if (foundRowIndex !== -1) {
+      surveySheet.deleteRow(foundRowIndex);
+    }
+    return sendJson({
       status: "success",
       type: "survey_konsumen",
       action: "delete",
-      message: "Survey berhasil dihapus."
+      message: "Data survey dihapus."
     });
   }
-  if (data.action !== "upsert") {
-    throw new Error("Aksi survey tidak dikenal.");
+
+  if (payload.action !== "upsert") {
+    return sendJson({
+      status: "error",
+      type: "survey_konsumen",
+      action: payload.action || "",
+      message: "Aksi survey tidak dikenal."
+    });
   }
 
-  var row = headers.map(function (header) {
-    return data[header] === undefined || data[header] === null ? "" : data[header];
+  var rowValues = SURVEY_HEADERS.map(function (col) {
+    return (payload[col] === undefined || payload[col] === null) ? "" : payload[col];
   });
-  var targetRow = matchingRow === -1 ? sheet.getLastRow() + 1 : matchingRow + 2;
-  sheet.getRange(targetRow, 1, 1, headers.length).setValues([row]);
-  return jsonResponse({
+  var writeRow = (foundRowIndex === -1) ? (surveySheet.getLastRow() + 1) : foundRowIndex;
+  surveySheet.getRange(writeRow, 1, 1, SURVEY_HEADERS.length).setValues([rowValues]);
+
+  return sendJson({
     status: "success",
     type: "survey_konsumen",
     action: "upsert",
-    message: "Survey berhasil disimpan."
-  });
-}
-
-function doGet(e) {
-  return jsonResponse({
-    status: "success",
-    survey_sync_version: 1,
-    message: "Webhook Google Apps Script aktif."
+    message: "Data survey tersimpan."
   });
 }
