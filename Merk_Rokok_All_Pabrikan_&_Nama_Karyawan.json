@@ -1,0 +1,917 @@
+{
+  "daftar_merk_rokok": [
+    "Andalan F 12",
+    "Andalan F 16",
+    "Apache Filter F 12",
+    "Apache Filter F 16",
+    "Ares Bold Series F 12",
+    "Ares Kaizer  F 12",
+    "Armour Bold F 20",
+    "Armour F 12",
+    "Armour Hitam F 20",
+    "BLACK SCORPION 20",
+    "CHIEF 12",
+    "CHIEF 16",
+    "Climax Filter Klik Punch F 20",
+    "D. SUPER 12",
+    "D. SUPER 16",
+    "DJARUM KING 12",
+    "Dji Sam Soe Magnum Filter (edisi bintang) F 12",
+    "Dji Sam Soe Magnum Filter F 12",
+    "DONGAN 12",
+    "Gajah Baru F 12",
+    "Gajah Baru F 16",
+    "Galang Baru Intercontinental F 12",
+    "Galang Baru Intercontinental F 16",
+    "GG Inter K 12",
+    "GG Surya F 50",
+    "GG Surya Maroon F 12",
+    "GG Surya Maroon F 16",
+    "GG Surya Merah F 12",
+    "GG Surya Merah F 16",
+    "GG Surya Pro F 16",
+    "GL GE-EL K 12",
+    "Grendel Inter Biru F 12",
+    "HS F 12",
+    "Marlboro Filter Black F 12",
+    "Marlboro Filter Black F 20",
+    "MLD BLACK SERIES 12",
+    "Mlindjo \"Mobil\" F 12",
+    "Mlindjo Abang K 12",
+    "Mlindjo Red F 12",
+    "Mlindjo Super F 12",
+    "OE Bold F 12",
+    "Oe Bold F 20",
+    "Oepet K 10",
+    "Oepet Lights F 12",
+    "Oepet OE K 12",
+    "On Bold F 20",
+    "Pena Gold F 12",
+    "Pena Gold F 20",
+    "Penamas Gold F 12",
+    "Penamas Hitam F 12",
+    "Penamas Kuning F 12",
+    "Penamas Light 12",
+    "Penamas Super F 12",
+    "Penamas Super F 16",
+    "Pundimas Hitam F 12",
+    "Pundimas Hitam F 16",
+    "Pundimas Putih F 12",
+    "RAPTOR 12",
+    "SENIOR CAFFE LATTE 12",
+    "Sukun Executive F 12",
+    "Sukun Executive F 16",
+    "Sukun Magno F 12",
+    "Sukun Special F 12",
+    "Sukun Special F 16",
+    "ULTIMO 12",
+    "Win Bold F 20",
+    "Win F 12",
+    "Win F 20",
+    "Wismilak Diplomat F 12",
+    "Wismilak Diplomat F 16",
+    "ZIGA 12",
+    "A Hijau (10+2) K 12",
+    "A Hijau K 12",
+    "A Legit Amerta K 12",
+    "A Legit Nira K 12",
+    "A Legit Sada K 12",
+    "A Prima (SP) K 12",
+    "A Prima Go K 12",
+    "A Prima K 12",
+    "Andalan Kuning K 12",
+    "Andalan Kuning K 16",
+    "Apache K 12",
+    "Armour K 16",
+    "BLACK MATCHA KRETEK 12",
+    "CHIEF KRETEK 12",
+    "D. 76 12",
+    "D. 76 16",
+    "D. 76 APEL 12",
+    "D. 76 APEL ROYAL 12",
+    "D. 76 MADU HITAM 12",
+    "D. 76 MANGGA 12",
+    "D. 76 MANGGA ROYAL 12",
+    "D. 76 NANAS 12",
+    "D. 76 ROYAL 12",
+    "D. SAFARI 12",
+    "D. SAFARI WRAPS 12",
+    "D. SUPER ESPRESSO 12",
+    "D. SUPER ESPRESSO GOLD 12",
+    "D. SUPER KRETEK WRAPS 12",
+    "DJARUM D WRAPS 12",
+    "DJI SAM SOE KRETEK (10+2) K 12",
+    "Dji Sam Soe Kretek (6+6) K 12",
+    "Dji Sam Soe Kretek K 12",
+    "Dji Sam Soe Kretek K 16",
+    "Dji Sam Soe Super Premium (SP) K 12",
+    "Dji Sam Soe Super Premium K 12",
+    "Dji Sam Soe Super Premium Maestro K 12",
+    "GAJAH BARU K 12",
+    "Gajah Baru K 16",
+    "Galang Baru K 12",
+    "GAZE KRETEK 12",
+    "GG Djaja K 12",
+    "GG Merah (HP) K 12",
+    "GG Merah K 12",
+    "GG Merah K 16",
+    "Grendel Utama K 12",
+    "Grendel Utama K 16",
+    "HS Kretek K 12",
+    "Juara Jambu K 12",
+    "Juara Mangga K 12",
+    "Magnum Kretek Gold Wraps K 12",
+    "Magnum Kretek Silver Wraps K 12",
+    "Marlboro Crafted Origin (SPT) 12",
+    "Marlboro Crafted Selection (SPT) 12",
+    "On Line K 16",
+    "Penamas Coklat K 10",
+    "Penamas K 12",
+    "Pundimas Nasional K 12",
+    "Pundimas Nasional K 16",
+    "SCORE TEH MANIS KRETEK 12",
+    "Sukun 2000 K 12",
+    "Sukun Hijau K 12",
+    "Sukun Istimewa K 10",
+    "Sukun Merah K 12",
+    "Sukun Premiere K 12",
+    "Surya Nusantara K 12",
+    "Surya Nusantara Raya K 12",
+    "Tali Roso K 12",
+    "Untung K 12",
+    "WARUNG KOPI JAMBU KRT 12",
+    "Win Berry K 12",
+    "Win Hijau K 12",
+    "Win Teh Manis K 12",
+    "Wismilak Arja K 12",
+    "Wismilak Arja Mangga Arumanis K 12",
+    "Wismilak Satya K 12",
+    "Wismilak Special (HP) K 12",
+    "CAMEL ACTIVATE PURPLE MINT 20",
+    "Camel White 20",
+    "Country Lights 20",
+    "Country Special 20",
+    "FORTE COOL MANGO 20",
+    "FORTE MENTHOL 20",
+    "FORTE ORIGINAL 20",
+    "Lucky Strike 20",
+    "Lucky Strike Lights 20",
+    "Marcopolo King Size 20",
+    "Marlboro Gold Lights 20",
+    "Marlboro Ice Burst 20",
+    "Marlboro Red 20",
+    "3VO Matcha Click 16",
+    "A Mild 12",
+    "A Mild 16",
+    "A Mild Menthol 16",
+    "A Splash Royal 16",
+    "A SPLASH TROPICAL 16",
+    "Ares Mind F 12",
+    "Avolution 20",
+    "Avolution Menthol 20",
+    "BLACK 16",
+    "BLACK CAPP 16",
+    "BLACK MATCHA KURO 16",
+    "BLACK MATCHA SHIRO 16",
+    "Camel Intense Blue 16",
+    "CAMEL OPTION PURPLE 12",
+    "Camel Option Purple 16",
+    "CAMEL YELLOW 20",
+    "Clas Mild 16",
+    "Clas Mild 20",
+    "Climax Click Icy 20",
+    "Climax Click Mango 20",
+    "Climax Click Tropis Unik 20",
+    "D. SUPER MILD 20",
+    "D.SUPER MLD FRESH COLA 16",
+    "Diplomat Evo 16",
+    "Diplomat Evo Berry Squizz 12",
+    "Diplomat Mild 16",
+    "Diplomat Mild Berry Spark 16",
+    "Dunhill Filter 16",
+    "Dunhill Mild 16",
+    "Dunhill Mild 20",
+    "Esse Change Applemint 16",
+    "Esse Change Applemint 20",
+    "Esse Change Double 20",
+    "ESSE CHANGE JUICY 20",
+    "ESSE SHUFFLE POP 16",
+    "GEO MILD 16",
+    "GG Surya Pro Mild 16",
+    "HS Mango Ice 16",
+    "HS Original Mild 16",
+    "HS Original Slim 20",
+    "HS Purple Ice 16",
+    "INSTA WATERMELON 16",
+    "LA BOLD 12",
+    "LA BOLD 16",
+    "LA BOLD 20",
+    "LA ICE 16",
+    "LA ICE MANGO BOOST 16",
+    "LA ICE PURPLE BOOST 16",
+    "LA LIGHTS 12",
+    "LA LIGHTS 16",
+    "Marlboro Vista Purple Burst 16",
+    "Marlboro Vista Tropical Burst 16",
+    "Niko Nextion F 16",
+    "ON LINE 16",
+    "Pena Mild 16",
+    "Red Bold 20",
+    "Red Mild 16",
+    "Twizz Royal Crush 16",
+    "Twizz Yellow Crush 16",
+    "Win Click Berry 20",
+    "Win Mild 16",
+    "WIN MILD 20",
+    "Andalan F 12",
+    "Andalan F 16",
+    "Apache Filter F 12",
+    "Apache Filter F 16",
+    "Ares Bold Series F 12",
+    "Ares Kaizer  F 12",
+    "Armour Bold F 20",
+    "Armour F 12",
+    "Armour Hitam F 20",
+    "BLACK SCORPION 20",
+    "CHIEF 12",
+    "CHIEF 16",
+    "Climax Filter Klik Punch F 20",
+    "D. SUPER 12",
+    "D. SUPER 16",
+    "DJARUM KING 12",
+    "Dji Sam Soe Magnum Filter (edisi bintang) F 12",
+    "Dji Sam Soe Magnum Filter F 12",
+    "DONGAN 12",
+    "Gajah Baru F 12",
+    "Gajah Baru F 16",
+    "Galang Baru Intercontinental F 12",
+    "Galang Baru Intercontinental F 16",
+    "GG Inter K 12",
+    "GG Surya F 50",
+    "GG Surya Maroon F 12",
+    "GG Surya Maroon F 16",
+    "GG Surya Merah F 12",
+    "GG Surya Merah F 16",
+    "GG Surya Pro F 16",
+    "GL GE-EL K 12",
+    "Grendel Inter Biru F 12",
+    "HS F 12",
+    "Marlboro Filter Black F 12",
+    "Marlboro Filter Black F 20",
+    "MLD BLACK SERIES 12",
+    "Mlindjo \"Mobil\" F 12",
+    "Mlindjo Abang K 12",
+    "Mlindjo Red F 12",
+    "Mlindjo Super F 12",
+    "OE Bold F 12",
+    "Oe Bold F 20",
+    "Oepet K 10",
+    "Oepet Lights F 12",
+    "Oepet OE K 12",
+    "On Bold F 20",
+    "Pena Gold F 12",
+    "Pena Gold F 20",
+    "Penamas Gold F 12",
+    "Penamas Hitam F 12",
+    "Penamas Kuning F 12",
+    "Penamas Light 12",
+    "Penamas Super F 12",
+    "Penamas Super F 16",
+    "Pundimas Hitam F 12",
+    "Pundimas Hitam F 16",
+    "Pundimas Putih F 12",
+    "RAPTOR 12",
+    "SENIOR CAFFE LATTE 12",
+    "Sukun Executive F 12",
+    "Sukun Executive F 16",
+    "Sukun Magno F 12",
+    "Sukun Special F 12",
+    "Sukun Special F 16",
+    "ULTIMO 12",
+    "Win Bold F 20",
+    "Win F 12",
+    "Win F 20",
+    "Wismilak Diplomat F 12",
+    "Wismilak Diplomat F 16",
+    "ZIGA 12",
+    "A Hijau (10+2) K 12",
+    "A Hijau K 12",
+    "A Legit Amerta K 12",
+    "A Legit Nira K 12",
+    "A Legit Sada K 12",
+    "A Prima (SP) K 12",
+    "A Prima Go K 12",
+    "A Prima K 12",
+    "Andalan Kuning K 12",
+    "Andalan Kuning K 16",
+    "Apache K 12",
+    "Armour K 16",
+    "BLACK MATCHA KRETEK 12",
+    "CHIEF KRETEK 12",
+    "D. 76 12",
+    "D. 76 16",
+    "D. 76 APEL 12",
+    "D. 76 APEL ROYAL 12",
+    "D. 76 MADU HITAM 12",
+    "D. 76 MANGGA 12",
+    "D. 76 MANGGA ROYAL 12",
+    "D. 76 NANAS 12",
+    "D. 76 ROYAL 12",
+    "D. SAFARI 12",
+    "D. SAFARI WRAPS 12",
+    "D. SUPER ESPRESSO 12",
+    "D. SUPER ESPRESSO GOLD 12",
+    "D. SUPER KRETEK WRAPS 12",
+    "DJARUM D WRAPS 12",
+    "DJI SAM SOE KRETEK (10+2) K 12",
+    "Dji Sam Soe Kretek (6+6) K 12",
+    "Dji Sam Soe Kretek K 12",
+    "Dji Sam Soe Kretek K 16",
+    "Dji Sam Soe Super Premium (SP) K 12",
+    "Dji Sam Soe Super Premium K 12",
+    "Dji Sam Soe Super Premium Maestro K 12",
+    "GAJAH BARU K 12",
+    "Gajah Baru K 16",
+    "Galang Baru K 12",
+    "GAZE KRETEK 12",
+    "GG Djaja K 12",
+    "GG Merah (HP) K 12",
+    "GG Merah K 12",
+    "GG Merah K 16",
+    "Grendel Utama K 12",
+    "Grendel Utama K 16",
+    "HS Kretek K 12",
+    "Juara Jambu K 12",
+    "Juara Mangga K 12",
+    "Magnum Kretek Gold Wraps K 12",
+    "Magnum Kretek Silver Wraps K 12",
+    "Marlboro Crafted Origin (SPT) 12",
+    "Marlboro Crafted Selection (SPT) 12",
+    "On Line K 16",
+    "Penamas Coklat K 10",
+    "Penamas K 12",
+    "Pundimas Nasional K 12",
+    "Pundimas Nasional K 16",
+    "SCORE TEH MANIS KRETEK 12",
+    "Sukun 2000 K 12",
+    "Sukun Hijau K 12",
+    "Sukun Istimewa K 10",
+    "Sukun Merah K 12",
+    "Sukun Premiere K 12",
+    "Surya Nusantara K 12",
+    "Surya Nusantara Raya K 12",
+    "Tali Roso K 12",
+    "Untung K 12",
+    "WARUNG KOPI JAMBU KRT 12",
+    "Win Berry K 12",
+    "Win Hijau K 12",
+    "Win Teh Manis K 12",
+    "Wismilak Arja K 12",
+    "Wismilak Arja Mangga Arumanis K 12",
+    "Wismilak Satya K 12",
+    "Wismilak Special (HP) K 12",
+    "CAMEL ACTIVATE PURPLE MINT 20",
+    "Camel White 20",
+    "Country Lights 20",
+    "Country Special 20",
+    "FORTE COOL MANGO 20",
+    "FORTE MENTHOL 20",
+    "FORTE ORIGINAL 20",
+    "Lucky Strike 20",
+    "Lucky Strike Lights 20",
+    "Marcopolo King Size 20",
+    "Marlboro Gold Lights 20",
+    "Marlboro Ice Burst 20",
+    "Marlboro Red 20",
+    "3VO Matcha Click 16",
+    "A Mild 12",
+    "A Mild 16",
+    "A Mild Menthol 16",
+    "A Splash Royal 16",
+    "A SPLASH TROPICAL 16",
+    "Ares Mind F 12",
+    "Avolution 20",
+    "Avolution Menthol 20",
+    "BLACK 16",
+    "BLACK CAPP 16",
+    "BLACK MATCHA KURO 16",
+    "BLACK MATCHA SHIRO 16",
+    "Camel Intense Blue 16",
+    "CAMEL OPTION PURPLE 12",
+    "Camel Option Purple 16",
+    "CAMEL YELLOW 20",
+    "Clas Mild 16",
+    "Clas Mild 20",
+    "Climax Click Icy 20",
+    "Climax Click Mango 20",
+    "Climax Click Tropis Unik 20",
+    "D. SUPER MILD 20",
+    "D.SUPER MLD FRESH COLA 16",
+    "Diplomat Evo 16",
+    "Diplomat Evo Berry Squizz 12",
+    "Diplomat Mild 16",
+    "Diplomat Mild Berry Spark 16",
+    "Dunhill Filter 16",
+    "Dunhill Mild 16",
+    "Dunhill Mild 20",
+    "Esse Change Applemint 16",
+    "Esse Change Applemint 20",
+    "Esse Change Double 20",
+    "ESSE CHANGE JUICY 20",
+    "ESSE SHUFFLE POP 16",
+    "GEO MILD 16",
+    "GG Surya Pro Mild 16",
+    "HS Mango Ice 16",
+    "HS Original Mild 16",
+    "HS Original Slim 20",
+    "HS Purple Ice 16",
+    "INSTA WATERMELON 16",
+    "LA BOLD 12",
+    "LA BOLD 16",
+    "LA BOLD 20",
+    "LA ICE 16",
+    "LA ICE MANGO BOOST 16",
+    "LA ICE PURPLE BOOST 16",
+    "LA LIGHTS 12",
+    "LA LIGHTS 16",
+    "Marlboro Vista Purple Burst 16",
+    "Marlboro Vista Tropical Burst 16",
+    "Niko Nextion F 16",
+    "ON LINE 16",
+    "Pena Mild 16",
+    "Red Bold 20",
+    "Red Mild 16",
+    "Twizz Royal Crush 16",
+    "Twizz Yellow Crush 16",
+    "Win Click Berry 20",
+    "Win Mild 16",
+    "WIN MILD 20"
+  ],
+  "karyawan": [
+    {
+      "ID": 9194,
+      "NIK": "05000647",
+      "Name": "Dwi Ariyanto"
+    },
+    {
+      "ID": 9240,
+      "NIK": "05000718",
+      "Name": "Yanto Wibisono"
+    },
+    {
+      "ID": 9402,
+      "NIK": "05000988",
+      "Name": "Eko Kaspriyanto"
+    },
+    {
+      "ID": 9444,
+      "NIK": "05001236",
+      "Name": "Yudhi Dwi Susanto"
+    },
+    {
+      "ID": 9518,
+      "NIK": "05001409",
+      "Name": "Rizky Erdiansyah"
+    },
+    {
+      "ID": 9534,
+      "NIK": "05001438",
+      "Name": "Nanang Hadi Prasetyo"
+    },
+    {
+      "ID": 9614,
+      "NIK": "05001601",
+      "Name": "Mochamad Basori"
+    },
+    {
+      "ID": 9641,
+      "NIK": "05001657",
+      "Name": "Agus Wahyudi"
+    },
+    {
+      "ID": 9651,
+      "NIK": "05001684",
+      "Name": "Robby"
+    },
+    {
+      "ID": 9763,
+      "NIK": "05001908",
+      "Name": "Lila Aditya Perdana"
+    },
+    {
+      "ID": 9765,
+      "NIK": "05001913",
+      "Name": "Eko Prasetyo"
+    },
+    {
+      "ID": 9766,
+      "NIK": "05001914",
+      "Name": "Edwin Sutansyah"
+    },
+    {
+      "ID": 9782,
+      "NIK": "05001943",
+      "Name": "Sugeng Pristiyan"
+    },
+    {
+      "ID": 9843,
+      "NIK": "05002058",
+      "Name": "Kasiyono"
+    },
+    {
+      "ID": 9920,
+      "NIK": "05002215",
+      "Name": "Saptono Mujiharto"
+    },
+    {
+      "ID": 9939,
+      "NIK": "05002259",
+      "Name": "Doni Hermawan"
+    },
+    {
+      "ID": 9941,
+      "NIK": "05002261",
+      "Name": "Rusdianto"
+    },
+    {
+      "ID": 9990,
+      "NIK": "05002370",
+      "Name": "Hendra"
+    },
+    {
+      "ID": 9994,
+      "NIK": "05002375",
+      "Name": "Khoirul Asyhari"
+    },
+    {
+      "ID": 9995,
+      "NIK": "05002376",
+      "Name": "Dian Candra Wijaya"
+    },
+    {
+      "ID": 10083,
+      "NIK": "05002527",
+      "Name": "Stevard Rampagoa"
+    },
+    {
+      "ID": 10091,
+      "NIK": "05002539",
+      "Name": "Charles Kristiawan"
+    },
+    {
+      "ID": 10263,
+      "NIK": "05002729",
+      "Name": "Angga Setia Permana"
+    },
+    {
+      "ID": 10294,
+      "NIK": "05002773",
+      "Name": "Purnomo Adi Nugroho"
+    },
+    {
+      "ID": 10296,
+      "NIK": "05002775",
+      "Name": "Ari Tirto Raharjo"
+    },
+    {
+      "ID": 10319,
+      "NIK": "05002802",
+      "Name": "Amin Prayogi"
+    },
+    {
+      "ID": 10404,
+      "NIK": "05002903",
+      "Name": "Martino Febyanto"
+    },
+    {
+      "ID": 10419,
+      "NIK": "05002923",
+      "Name": "Budiono"
+    },
+    {
+      "ID": 10428,
+      "NIK": "05002934",
+      "Name": "Arif Yuliadi"
+    },
+    {
+      "ID": 10625,
+      "NIK": "05003153",
+      "Name": "Lutfi Aziz Saifullah"
+    },
+    {
+      "ID": 10853,
+      "NIK": "05003382",
+      "Name": "Hengky Sugiarto Handoko"
+    },
+    {
+      "ID": 10855,
+      "NIK": "05003384",
+      "Name": "Reinanda Yusman"
+    },
+    {
+      "ID": 10983,
+      "NIK": "05003513",
+      "Name": "Alfindo Artadya Lukito"
+    },
+    {
+      "ID": 11298,
+      "NIK": "05003560",
+      "Name": "Rahdiyanto Kurniawan"
+    },
+    {
+      "ID": 11487,
+      "NIK": "05003641",
+      "Name": "Ryan Pradita Ristanto"
+    },
+    {
+      "ID": 14644,
+      "NIK": "05003750",
+      "Name": "Septian Chandra"
+    },
+    {
+      "ID": 14648,
+      "NIK": "05003754",
+      "Name": "Michael Arthana"
+    },
+    {
+      "ID": 14652,
+      "NIK": "05003758",
+      "Name": "Alfianto Nurhuda"
+    },
+    {
+      "ID": 14864,
+      "NIK": "05003763",
+      "Name": "David Kurniawan"
+    },
+    {
+      "ID": 16025,
+      "NIK": "05004003",
+      "Name": "Dwi Ardianto Prawira Utomo"
+    },
+    {
+      "ID": 16033,
+      "NIK": "05004011",
+      "Name": "Sinatrya Feby Pracoyo"
+    },
+    {
+      "ID": 16806,
+      "NIK": "05004232",
+      "Name": "Moh Nazibul Awal"
+    },
+    {
+      "ID": 17522,
+      "NIK": "05004293",
+      "Name": "Hendra Setia Wijaya"
+    },
+    {
+      "ID": 17523,
+      "NIK": "05004294",
+      "Name": "Zuli Bachtiar"
+    },
+    {
+      "ID": 17531,
+      "NIK": "05004302",
+      "Name": "Eko Tony Prasetiyo"
+    },
+    {
+      "ID": 17949,
+      "NIK": "05004428",
+      "Name": "Ignatius Marcelino"
+    },
+    {
+      "ID": 18491,
+      "NIK": "05004485",
+      "Name": "Baehaki"
+    },
+    {
+      "ID": 18662,
+      "NIK": "05004530",
+      "Name": "Daniel Wijaya"
+    },
+    {
+      "ID": 19352,
+      "NIK": "05004639",
+      "Name": "Budi Setyawan"
+    },
+    {
+      "ID": 19417,
+      "NIK": "05004667",
+      "Name": "Eko Sucipto"
+    },
+    {
+      "ID": 19421,
+      "NIK": "05004671",
+      "Name": "Indra Fredi Wibowo"
+    },
+    {
+      "ID": 19461,
+      "NIK": "05004708",
+      "Name": "Muhammad Luthfi Anshori"
+    },
+    {
+      "ID": 19464,
+      "NIK": "05004711",
+      "Name": "Khoirur Rijal"
+    },
+    {
+      "ID": 19466,
+      "NIK": "05004713",
+      "Name": "Adi Fermansyah"
+    },
+    {
+      "ID": 19688,
+      "NIK": "05004803",
+      "Name": "Heru Setiawan"
+    },
+    {
+      "ID": 19769,
+      "NIK": "05004826",
+      "Name": "Ronald Tanuwijaya"
+    },
+    {
+      "ID": 21471,
+      "NIK": "05005032",
+      "Name": "Maxbafasya Aditya Wibowo"
+    },
+    {
+      "ID": 21649,
+      "NIK": "05005091",
+      "Name": "Guntur Vicki Prasetyo"
+    },
+    {
+      "ID": 22747,
+      "NIK": "05005331",
+      "Name": "Dwi Nor Fais"
+    },
+    {
+      "ID": 23998,
+      "NIK": "05005550",
+      "Name": "Daniel Arief Kurniawan"
+    },
+    {
+      "ID": 24632,
+      "NIK": "05005733",
+      "Name": "Reza Firmansyah"
+    },
+    {
+      "ID": 25057,
+      "NIK": "05005849",
+      "Name": "Jaka Andi Dewantara"
+    },
+    {
+      "ID": 25074,
+      "NIK": "05005868",
+      "Name": "Leo Nurmandi Nirwana"
+    },
+    {
+      "ID": 27039,
+      "NIK": "05006212",
+      "Name": "Stephanus Viki Narendra"
+    },
+    {
+      "ID": 28284,
+      "NIK": "05006329",
+      "Name": "Benidiktus Joni Harihadi"
+    },
+    {
+      "ID": 29164,
+      "NIK": "05006423",
+      "Name": "Nurcholis Arianto"
+    },
+    {
+      "ID": 29304,
+      "NIK": "05006475",
+      "Name": "Achmad Danu Ardi"
+    },
+    {
+      "ID": 79810,
+      "NIK": "05006904",
+      "Name": "Nur Rahmat"
+    },
+    {
+      "ID": 79858,
+      "NIK": "05006906",
+      "Name": "Surya Wisnu Wibisono"
+    },
+    {
+      "ID": 80149,
+      "NIK": "05006951",
+      "Name": "Dimas Rizky Dermawan"
+    },
+    {
+      "ID": 80430,
+      "NIK": "05007003",
+      "Name": "Arum Ganda Fajar Ria"
+    },
+    {
+      "ID": 80757,
+      "NIK": "05007058",
+      "Name": "Axel Setiawan"
+    },
+    {
+      "ID": 82367,
+      "NIK": "05007139",
+      "Name": "Muhamad Baharudin Yusuf"
+    },
+    {
+      "ID": 82403,
+      "NIK": "05007149",
+      "Name": "Candra Budi Eka"
+    },
+    {
+      "ID": 82404,
+      "NIK": "05007150",
+      "Name": "Lurico Umar Raffsanjani"
+    },
+    {
+      "ID": 82620,
+      "NIK": "05007173",
+      "Name": "Diska Akbar Hermanto"
+    },
+    {
+      "ID": 82898,
+      "NIK": "05007211",
+      "Name": "Angga Budi Setiawan"
+    },
+    {
+      "ID": 83110,
+      "NIK": "O5126001",
+      "Name": "Rachmad Wahyudi1"
+    },
+    {
+      "ID": 83306,
+      "NIK": "05007246",
+      "Name": "Arik Wibisono"
+    },
+    {
+      "ID": 83354,
+      "NIK": "05007255",
+      "Name": "Delpiero Kevin Santoso"
+    },
+    {
+      "ID": 84454,
+      "NIK": "O5126021",
+      "Name": "ABDUS SAMAD"
+    },
+    {
+      "ID": 84455,
+      "NIK": "O5126022",
+      "Name": "MUHAMMAD IHWAN"
+    },
+    {
+      "ID": 85259,
+      "NIK": "05007274",
+      "Name": "Tegar Panca Gena"
+    },
+    {
+      "ID": 86906,
+      "NIK": "05007343",
+      "Name": "Arik Setiawan"
+    },
+    {
+      "ID": 86968,
+      "NIK": "05007347",
+      "Name": "Dhimas Prayoga"
+    },
+    {
+      "ID": 90871,
+      "NIK": "05007559",
+      "Name": "Ferdi Ardiansyah"
+    },
+    {
+      "ID": 96224,
+      "NIK": "05007607",
+      "Name": "Panji Layang Sandy"
+    },
+    {
+      "ID": 106863,
+      "NIK": "05007836",
+      "Name": "Aris Nur Andriansa"
+    },
+    {
+      "ID": 122524,
+      "NIK": "05008111",
+      "Name": "Mohammad Holidi"
+    },
+    {
+      "ID": 122525,
+      "NIK": "05008112",
+      "Name": "Zayd Abigail Johansyah"
+    },
+    {
+      "ID": 125986,
+      "NIK": "05008301",
+      "Name": "Stephen Reyhan Adijaya"
+    },
+    {
+      "ID": 126519,
+      "NIK": "05008356",
+      "Name": "Rendi Wahyudi"
+    },
+    {
+      "ID": 219573,
+      "NIK": "05008477",
+      "Name": "Muhammad Rizki Pratama Putra"
+    }
+  ]
+}
