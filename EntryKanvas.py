@@ -325,27 +325,74 @@ def _get_banner_base64():
 
 
 @st.cache_data
-def load_bumo_options():
-    if not os.path.exists(BRAND_DATA_FILE):
-        return ["", "Lainnya"]
-    try:
-        with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
-            payload = json.load(file)
-    except (OSError, json.JSONDecodeError):
-        return ["", "Lainnya"]
+FALLBACK_BUMO_BRANDS = [
+    "Djarum 76 Aksara",
+    "Djarum Super",
+    "Djarum Black",
+    "Djarum 76",
+    "Gudang Garam Surya",
+    "Gudang Garam Filter",
+    "Sampoerna A Mild",
+    "Sampoerna Kretek",
+    "Marlboro",
+    "Class Mild",
+    "LA Lights",
+]
 
-    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
-    unique_brands = [""]
-    seen = {""}
-    for item in raw_brands:
-        if isinstance(item, str):
-            cleaned = item.strip()
-            if cleaned and cleaned not in seen:
-                seen.add(cleaned)
-                unique_brands.append(cleaned)
+
+def _extract_brand_strings(node, collector, seen):
+    if isinstance(node, str):
+        cleaned = node.strip()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            collector.append(cleaned)
+    elif isinstance(node, list):
+        for item in node:
+            _extract_brand_strings(item, collector, seen)
+    elif isinstance(node, dict):
+        # Prioritaskan key yang umum dipakai untuk daftar merek
+        preferred_keys = [
+            "daftar_merk_rokok",
+            "merk_rokok",
+            "brands",
+            "merk",
+            "data",
+            "pabrikan",
+        ]
+        handled_keys = set()
+        for key in preferred_keys:
+            if key in node:
+                _extract_brand_strings(node[key], collector, seen)
+                handled_keys.add(key)
+        for key, value in node.items():
+            if key not in handled_keys:
+                _extract_brand_strings(value, collector, seen)
+
+
+@st.cache_data(show_spinner=False)
+def load_bumo_options():
+    brands = []
+    seen = set()
+
+    if os.path.exists(BRAND_DATA_FILE):
+        try:
+            with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+            _extract_brand_strings(payload, brands, seen)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # Jika file kosong / gagal dibaca, gunakan fallback agar selectbox tidak kosong
+    if not brands:
+        for item in FALLBACK_BUMO_BRANDS:
+            if item not in seen:
+                seen.add(item)
+                brands.append(item)
+
     if "Lainnya" not in seen:
-        unique_brands.append("Lainnya")
-    return unique_brands
+        brands.append("Lainnya")
+
+    return [""] + brands
 
 
 def init_db():
