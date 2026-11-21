@@ -124,7 +124,7 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+    background: linear-gradient(135deg, #f1f5f9 0%, #e6e4de 52%, #f8fafc 100%);
 }
 
 h1, h2, h3, h4 {
@@ -135,9 +135,9 @@ h1, h2, h3, h4 {
 
 .login-hero-combined {
     background: #09090b;
-    border-radius: 16px;
-    border: 1px solid #27272a;
-    box-shadow: 0 12px 26px -8px rgba(15, 23, 42, 0.32);
+    border-radius: 14px;
+    border: 1px solid rgba(212, 175, 55, 0.30);
+    box-shadow: 0 14px 30px -10px rgba(9, 9, 11, 0.42);
     overflow: hidden;
     margin-bottom: 0.75rem;
 }
@@ -146,39 +146,58 @@ h1, h2, h3, h4 {
     width: 100%;
     height: auto;
     display: block;
-    border-radius: 15px 15px 0 0;
+    border-radius: 13px 13px 0 0;
 }
 
 .login-title-strip {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #991b1b 100%);
+    background: linear-gradient(
+        95deg,
+        #09090b 0%,
+        #141417 52%,
+        #231c10 100%
+    );
     padding: 0.8rem 1.2rem;
-    color: #ffffff;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    color: #f8fafc;
+    border-top: 1px solid rgba(212, 175, 55, 0.34);
 }
 
 .login-title-strip h2 {
-    color: #ffffff !important;
-    font-size: 1.22rem;
-    margin: 0 0 0.15rem 0;
+    color: #f8fafc !important;
+    font-size: 1.2rem;
+    margin: 0 0 0.16rem 0;
     font-weight: 800;
-    line-height: 1.2;
+    letter-spacing: -0.015em;
+    line-height: 1.22;
 }
 
 .login-title-strip p {
-    color: #e2e8f0;
+    color: #cbd5e1;
     font-size: 0.84rem;
     margin: 0;
-    line-height: 1.3;
+    line-height: 1.32;
+}
+
+/* Tab Login / Navigasi bernuansa Emas & Hitam */
+button[data-baseweb="tab"] {
+    font-weight: 700 !important;
+    color: #475569 !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #92400e !important;
+}
+div[data-baseweb="tab-highlight"] {
+    background-color: #d4af37 !important;
+    height: 3px !important;
 }
 
 .hero-header {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #b91c1c 100%);
+    background: linear-gradient(95deg, #09090b 0%, #141417 55%, #231c10 100%);
     padding: 1.35rem 1.75rem;
     border-radius: 16px;
     color: #ffffff;
-    box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.32);
+    box-shadow: 0 12px 28px -8px rgba(9, 9, 11, 0.36);
     margin-bottom: 1.2rem;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.30);
 }
 .hero-header h1 {
     color: #ffffff !important;
@@ -193,8 +212,8 @@ h1, h2, h3, h4 {
 }
 .hero-badge {
     display: inline-block;
-    background: rgba(255, 255, 255, 0.16);
-    color: #fef08a;
+    background: rgba(212, 175, 55, 0.18);
+    color: #f5d061;
     font-size: 0.72rem;
     font-weight: 700;
     padding: 0.2rem 0.65rem;
@@ -202,16 +221,17 @@ h1, h2, h3, h4 {
     margin-bottom: 0.5rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    border: 1px solid rgba(212, 175, 55, 0.35);
 }
 
 .user-pill {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(135deg, #141417 0%, #09090b 65%, #231c10 100%);
     color: #ffffff;
     padding: 0.95rem 1.1rem;
     border-radius: 14px;
     margin-bottom: 1rem;
-    border: 1px solid #334155;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    border: 1px solid rgba(212, 175, 55, 0.30);
+    box-shadow: 0 4px 12px rgba(9, 9, 11, 0.2);
 }
 .user-pill .role-tag {
     display: inline-block;
@@ -220,12 +240,13 @@ h1, h2, h3, h4 {
     text-transform: uppercase;
     padding: 0.18rem 0.55rem;
     border-radius: 999px;
-    background: #dc2626;
-    color: #ffffff;
+    background: #b45309;
+    color: #fef9c3;
     margin-bottom: 0.35rem;
 }
 .user-pill .role-tag.admin {
-    background: #d97706;
+    background: #d4af37;
+    color: #09090b;
 }
 .user-pill .user-name {
     font-size: 1rem;
@@ -235,24 +256,46 @@ h1, h2, h3, h4 {
 }
 .user-pill .user-sub {
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: #cbd5e1;
     margin-top: 0.15rem;
 }
 
 .stButton>button {
     border-radius: 10px;
-    font-weight: 600;
+    font-weight: 700;
     width: 100%;
-    padding: 0.5rem 0.95rem;
+    padding: 0.52rem 0.95rem;
     transition: all 0.18s ease;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.stButton>button[kind="primary"],
+div[data-testid="stFormSubmitButton"]>button[kind="primary"] {
+    background: linear-gradient(135deg, #eab308 0%, #ca8a04 55%, #a16207 100%) !important;
+    color: #09090b !important;
+    border: 1px solid #facc15 !important;
+    box-shadow: 0 6px 16px -4px rgba(161, 98, 7, 0.38);
+}
+
+.stButton>button[kind="primary"]:hover,
+div[data-testid="stFormSubmitButton"]>button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #facc15 0%, #eab308 60%, #b45309 100%) !important;
+    color: #09090b !important;
+}
+
+.stButton>button[kind="primary"]:disabled {
+    background: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
 }
 
 div[data-testid="stForm"] {
     background: #ffffff;
     padding: 1.15rem 1.35rem;
     border-radius: 14px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
 
 div[data-testid="stDataFrame"] {
@@ -266,7 +309,7 @@ div[data-testid="stMetric"] {
     background: #ffffff;
     padding: 1rem 1.2rem;
     border-radius: 14px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid rgba(212, 175, 55, 0.25);
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 }
 </style>
