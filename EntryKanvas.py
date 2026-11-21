@@ -77,6 +77,7 @@ SURVEY_AWARENESS_SOURCES = [
     "Papan Reklame",
     "Iklan di TV",
     "Media Sosial (Facebook, IG, TikTok, dll)",
+    "Teman / Tetangga",
 ]
 SURVEY_FEEDBACK_FIELDS = {
     "Komentar Positif - Rasa": "komentar_positif_rasa",
