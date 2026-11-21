@@ -1623,22 +1623,34 @@ def survey_monitoring_page():
     )
 
 
-def recap_page(df):
+def recap_page(df, locked_promoter=None):
     st.title("📈 Rekapitulasi Harian & Mingguan (Report Table)")
-    if df.empty:
-        st.info("📭 Belum ada data untuk direkap.")
+    work = df[df["Nama Promotor"] == locked_promoter].copy() if locked_promoter else df.copy()
+    if work.empty:
+        if locked_promoter:
+            st.info(f"📭 Belum ada data laporan kanvas atas nama **{locked_promoter}** untuk direkap.")
+        else:
+            st.info("📭 Belum ada data untuk direkap.")
         return
-    work = df.copy()
+
     work["Tanggal_DT"] = pd.to_datetime(work["Tanggal"], errors="coerce")
-    zones = ["All Zona"] + sorted(set(PROMOTOR_ZONA.values()))
     c1, c2, c3, c4 = st.columns(4)
-    zone = c1.selectbox("Pilih Zona", zones, key="rekap_zona")
-    if zone != "All Zona":
-        work = work[work["Zona"] == zone]
-    promoters = ["All Promotor"] + sorted(work["Nama Promotor"].dropna().unique().tolist())
-    promoter = c2.selectbox("Pilih Promotor", promoters, key="rekap_promotor")
-    if promoter != "All Promotor":
-        work = work[work["Nama Promotor"] == promoter]
+
+    if locked_promoter:
+        zone = PROMOTOR_ZONA.get(locked_promoter, "-")
+        promoter = locked_promoter
+        c1.selectbox("Zona", [zone], index=0, disabled=True, key="rekap_zona_locked")
+        c2.selectbox("Nama Promotor", [promoter], index=0, disabled=True, key="rekap_promotor_locked")
+    else:
+        zones = ["All Zona"] + sorted(set(PROMOTOR_ZONA.values()))
+        zone = c1.selectbox("Pilih Zona", zones, key="rekap_zona")
+        if zone != "All Zona":
+            work = work[work["Zona"] == zone]
+        promoters = ["All Promotor"] + sorted(work["Nama Promotor"].dropna().unique().tolist())
+        promoter = c2.selectbox("Pilih Promotor", promoters, key="rekap_promotor")
+        if promoter != "All Promotor":
+            work = work[work["Nama Promotor"] == promoter]
+
     years = sorted(work["Tanggal_DT"].dropna().dt.year.unique(), reverse=True)
     if not years:
         st.info("📭 Belum ada tanggal laporan yang valid untuk filter yang dipilih.")
@@ -2010,7 +2022,11 @@ else:
     else:
         menu = st.sidebar.radio(
             "Menu Laporan Kanvas:",
-            ["Form Entry Laporan Kanvas", "Edit Laporan"],
+            [
+                "Form Entry Laporan Kanvas",
+                "Edit Laporan",
+                "Rekapitulasi Harian & Mingguan (Report Table)",
+            ],
             key="kanvas_navigation_promotor",
         )
 
@@ -2057,8 +2073,8 @@ elif menu == "Survey Konsumen":
     elif survey_menu == "Monitoring Survey" and is_admin:
         survey_monitoring_page()
 
-elif menu == "Rekapitulasi Harian & Mingguan (Report Table)" and is_admin:
-    recap_page(load_data())
+elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
+    recap_page(load_data(), locked_promoter=None if is_admin else logged_promoter)
 
 elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)" and is_admin:
     log_page(load_data())
