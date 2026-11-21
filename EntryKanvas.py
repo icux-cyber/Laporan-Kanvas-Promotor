@@ -131,7 +131,6 @@ h1, h2, h3, h4 {
     letter-spacing: -0.02em;
 }
 
-/* Hero Banner & Login Card */
 .hero-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #b91c1c 100%);
     padding: 2rem 2.2rem;
@@ -163,14 +162,6 @@ h1, h2, h3, h4 {
     margin-bottom: 0.65rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-}
-
-.login-card {
-    background: #ffffff;
-    padding: 1.75rem 2rem;
-    border-radius: 18px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
 }
 
 .user-pill {
@@ -206,15 +197,6 @@ h1, h2, h3, h4 {
     font-size: 0.8rem;
     color: #94a3b8;
     margin-top: 0.15rem;
-}
-
-.section-card {
-    background: #ffffff;
-    padding: 1.35rem 1.5rem;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-    margin-bottom: 1rem;
 }
 
 .stButton>button {
@@ -581,6 +563,9 @@ def login_page():
             ):
                 st.session_state["auth_role"] = "promotor"
                 st.session_state["auth_promotor"] = selected_promotor
+                st.session_state["promotor_assigned_module"] = (
+                    "survey" if "Survey" in selected_module else "kanvas"
+                )
                 st.session_state["active_page"] = (
                     "Survey Konsumen" if "Survey" in selected_module else "Laporan Kanvas"
                 )
@@ -588,24 +573,17 @@ def login_page():
 
         with tab_admin:
             st.markdown("#### Masuk Sebagai Admin")
-            st.caption("Masukkan password admin untuk mengakses penuh modul Laporan Kanvas & Survey Konsumen.")
+            st.caption("Masukkan password admin untuk mengakses penuh seluruh modul Laporan Kanvas & Survey Konsumen.")
 
             with st.form("form_login_admin_portal"):
                 admin_pwd = st.text_input("Password Admin", type="password", placeholder="Masukkan password...")
-                default_admin_module = st.radio(
-                    "Buka Langsung Halaman Awal:",
-                    ["📋 Laporan Kanvas (Semua Menu)", "🗣️ Survey Konsumen (Semua Menu)"],
-                    horizontal=True,
-                )
                 submit_admin = st.form_submit_button("🔓 Masuk Sebagai Admin", type="primary")
 
             if submit_admin:
                 if admin_pwd == ADMIN_PASSWORD:
                     st.session_state["auth_role"] = "admin"
                     st.session_state["auth_promotor"] = None
-                    st.session_state["active_page"] = (
-                        "Survey Konsumen" if "Survey" in default_admin_module else "Laporan Kanvas"
-                    )
+                    st.session_state["active_page"] = "Laporan Kanvas"
                     st.rerun()
                 else:
                     st.error("❌ Password Admin salah. Silakan coba lagi.")
@@ -905,9 +883,11 @@ def consumer_survey_entry_page(locked_promoter=None):
         st.rerun()
 
 
-def survey_log_page(is_admin=False):
+def survey_log_page(is_admin=False, locked_promoter=None):
     st.title("📋 Log Entry Survey Konsumen")
     survey_df = load_survey_data()
+    if locked_promoter and not is_admin:
+        survey_df = survey_df[survey_df["Nama Promotor"] == locked_promoter]
     if survey_df.empty:
         st.info("📭 Belum ada data survey konsumen.")
     else:
@@ -1559,14 +1539,23 @@ def admin_protected_data_actions(df, today):
         st.rerun()
 
 
-def management_page(df, today):
-    st.title("🛠️ Manajemen Data (Edit, Unduh, & Hapus)")
-    if df.empty:
-        st.info("📭 Belum ada data laporan kanvas yang tercatat.")
+def management_page(df, today, is_admin=True, locked_promoter=None):
+    st.title("✏️ Edit Laporan Kanvas" if not is_admin else "🛠️ Manajemen Data (Edit, Unduh, & Hapus)")
+    work_df = df if is_admin else df[df["Nama Promotor"] == locked_promoter]
+    if work_df.empty:
+        st.info("📭 Belum ada data laporan kanvas yang dapat di-edit.")
         return
+
     st.markdown("#### ✏️ Pilih laporan yang akan dikoreksi")
-    selected_id = st.selectbox("Pilih ID Data yang Ingin Di-edit:", df["ID"].tolist(), format_func=lambda value: f"ID #{value} — {df.loc[df['ID'] == value, 'Tanggal'].iloc[0]} — {df.loc[df['ID'] == value, 'Nama Promotor'].iloc[0]}")
-    row = df[df["ID"] == selected_id].iloc[0]
+    selected_id = st.selectbox(
+        "Pilih ID Data yang Ingin Di-edit:",
+        work_df["ID"].tolist(),
+        format_func=lambda value: (
+            f"ID #{value} — {work_df.loc[work_df['ID'] == value, 'Tanggal'].iloc[0]} "
+            f"— {work_df.loc[work_df['ID'] == value, 'Nama Promotor'].iloc[0]}"
+        ),
+    )
+    row = work_df[work_df["ID"] == selected_id].iloc[0]
     st.markdown("##### Data sebelumnya")
     st.dataframe(row.to_frame().T, use_container_width=True, hide_index=True)
     st.markdown("##### Form Edit Laporan")
@@ -1575,8 +1564,16 @@ def management_page(df, today):
         with c1:
             raw_date = pd.to_datetime(row["Tanggal"], errors="coerce")
             edit_date = st.date_input("Date", value=raw_date.date() if pd.notna(raw_date) else datetime.now(TZ_WIB).date())
-            promoters = list(PROMOTOR_ZONA)
-            edit_promoter = st.selectbox("Nama Promotor", promoters, index=promoters.index(row["Nama Promotor"]) if row["Nama Promotor"] in promoters else 0)
+            if is_admin:
+                promoters = list(PROMOTOR_ZONA)
+                edit_promoter = st.selectbox(
+                    "Nama Promotor",
+                    promoters,
+                    index=promoters.index(row["Nama Promotor"]) if row["Nama Promotor"] in promoters else 0,
+                )
+            else:
+                edit_promoter = locked_promoter
+                st.text_input("Nama Promotor", value=edit_promoter, disabled=True)
             brands = ["Djarum 76 Aksara"]
             edit_brand = st.selectbox("Brand", brands, index=brands.index(row["Brand"]) if row["Brand"] in brands else 0)
         with c2:
@@ -1604,7 +1601,8 @@ def management_page(df, today):
         st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
         st.rerun()
 
-    admin_protected_data_actions(df, today)
+    if is_admin:
+        admin_protected_data_actions(df, today)
 
 
 def backup_restore_page(df):
@@ -1695,6 +1693,7 @@ if auth_role not in ("promotor", "admin"):
 
 is_admin = auth_role == "admin"
 logged_promoter = st.session_state.get("auth_promotor")
+promotor_module = st.session_state.get("promotor_assigned_module", "kanvas")
 
 # Sidebar User Card & Status Sinkronisasi
 if is_admin:
@@ -1707,11 +1706,12 @@ if is_admin:
     """, unsafe_allow_html=True)
 else:
     zona_user = PROMOTOR_ZONA.get(logged_promoter, "-")
+    modul_label = "Survey Konsumen" if promotor_module == "survey" else "Entry Laporan Kanvas"
     st.sidebar.markdown(f"""
     <div class="user-pill">
         <div class="role-tag">🧑‍💼 Promotor</div>
         <div class="user-name">{logged_promoter}</div>
-        <div class="user-sub">📍 Zona {zona_user}</div>
+        <div class="user-sub">📍 Zona {zona_user} • {modul_label}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1723,7 +1723,7 @@ elif restore_msg:
 
 st.sidebar.markdown("---")
 
-# Navigasi berdasarkan Role
+# Navigasi berdasarkan Role & Pilihan Login
 if is_admin:
     active_module = st.sidebar.radio(
         "Modul Utama:",
@@ -1750,28 +1750,24 @@ if is_admin:
             "Backup & Restore Google Sheets",
         ])
 else:
-    active_module = st.sidebar.radio(
-        "Menu Promotor:",
-        ["📝 Entry Laporan Kanvas", "🗣️ Survey Konsumen"],
-        index=0 if st.session_state.get("active_page", "Laporan Kanvas") == "Laporan Kanvas" else 1,
-        key="promotor_module_switcher",
-    )
-    st.session_state["active_page"] = "Laporan Kanvas" if "Laporan Kanvas" in active_module else "Survey Konsumen"
-    st.sidebar.markdown("---")
-
-    if st.session_state["active_page"] == "Survey Konsumen":
+    # Promotor terkunci pada modul yang dipilih saat login
+    if promotor_module == "survey":
         survey_menu = st.sidebar.radio(
-            "Pilihan Halaman:",
+            "Menu Survey Konsumen:",
             ["Entry Survey", "Log Entry Survey"],
             key="survey_navigation_promotor",
         )
         menu = "Survey Konsumen"
     else:
-        menu = "Form Entry Laporan Kanvas"
+        menu = st.sidebar.radio(
+            "Menu Laporan Kanvas:",
+            ["Form Entry Laporan Kanvas", "Edit Laporan"],
+            key="kanvas_navigation_promotor",
+        )
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Keluar / Ganti Akun", key="btn_logout"):
-    for key in ("auth_role", "auth_promotor", "active_page", "form_preview_data"):
+    for key in ("auth_role", "auth_promotor", "promotor_assigned_module", "active_page", "form_preview_data"):
         st.session_state.pop(key, None)
     st.rerun()
 
@@ -1788,16 +1784,21 @@ if menu == "Form Entry Laporan Kanvas":
     st.markdown("---")
     daily_status(load_data(), today)
 
+elif menu in ("Edit Laporan", "Manajemen Data (Edit, Unduh, & Hapus)"):
+    management_page(
+        load_data(),
+        today,
+        is_admin=is_admin,
+        locked_promoter=None if is_admin else logged_promoter,
+    )
+
 elif menu == "Survey Konsumen":
     if survey_menu == "Entry Survey":
         consumer_survey_entry_page(locked_promoter=None if is_admin else logged_promoter)
     elif survey_menu == "Log Entry Survey":
-        survey_log_page(is_admin=is_admin)
+        survey_log_page(is_admin=is_admin, locked_promoter=None if is_admin else logged_promoter)
     elif survey_menu == "Monitoring Survey" and is_admin:
         survey_monitoring_page()
-
-elif menu == "Manajemen Data (Edit, Unduh, & Hapus)" and is_admin:
-    management_page(load_data(), today)
 
 elif menu == "Rekapitulasi Harian & Mingguan (Report Table)" and is_admin:
     recap_page(load_data())
