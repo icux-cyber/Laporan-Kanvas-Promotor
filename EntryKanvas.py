@@ -7,6 +7,8 @@ import sqlite3
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
+import numpy as np
 import pandas as pd
 import pytz
 import requests
@@ -739,6 +741,224 @@ def build_bumo_acceptability_summary(survey_df):
     return summary_df
 
 
+def _render_donut_with_center_kpi(
+    values,
+    labels,
+    title,
+    kpi_value,
+    kpi_sublabel,
+    colors=None,
+    figsize=(7.5, 5.5),
+):
+    fig, ax = plt.subplots(figsize=figsize, facecolor="#f8fafc")
+    ax.set_facecolor("#f8fafc")
+
+    total = float(sum(values))
+    wedges, _ = ax.pie(
+        values,
+        labels=None,
+        startangle=90,
+        colors=colors,
+        counterclock=False,
+        wedgeprops={"width": 0.36, "edgecolor": "white", "linewidth": 2.2},
+    )
+
+    # Label nilai & persentase pada tiap segmen donat
+    for wedge, val, lbl in zip(wedges, values, labels):
+        if total <= 0 or val <= 0:
+            continue
+        pct = (val / total) * 100.0
+        angle = np.deg2rad((wedge.theta1 + wedge.theta2) / 2.0)
+        mid_r = 0.82
+        x = mid_r * np.cos(angle)
+        y = mid_r * np.sin(angle)
+        if pct >= 8.0:
+            ax.text(
+                x,
+                y,
+                f"{int(val)}\n({pct:.1f}%)",
+                ha="center",
+                va="center",
+                color="white",
+                fontsize=8.5,
+                fontweight="bold",
+            )
+        else:
+            outer_x = 1.14 * np.cos(angle)
+            outer_y = 1.14 * np.sin(angle)
+            ha = "left" if outer_x >= 0 else "right"
+            ax.annotate(
+                f"{lbl}: {int(val)} ({pct:.1f}%)",
+                xy=(1.0 * np.cos(angle), 1.0 * np.sin(angle)),
+                xytext=(outer_x, outer_y),
+                ha=ha,
+                va="center",
+                fontsize=8,
+                color="#1e293b",
+                arrowprops={"arrowstyle": "-", "color": "#94a3b8", "lw": 0.9},
+            )
+
+    # Lingkaran tengah + Center KPI
+    center_circle = plt.Circle((0, 0), 0.62, fc="white", ec="#e2e8f0", lw=1.5)
+    ax.add_patch(center_circle)
+    ax.text(
+        0,
+        0.10,
+        str(kpi_value),
+        ha="center",
+        va="center",
+        fontsize=18,
+        fontweight="bold",
+        color="#0f172a",
+    )
+    ax.text(
+        0,
+        -0.18,
+        str(kpi_sublabel),
+        ha="center",
+        va="center",
+        fontsize=8.5,
+        color="#475569",
+    )
+
+    ax.legend(
+        wedges,
+        labels,
+        title="Kategori",
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        frameon=True,
+        facecolor="white",
+        edgecolor="#e2e8f0",
+        fontsize=8.5,
+        title_fontsize=9,
+    )
+    ax.set_title(title, fontsize=11.5, fontweight="bold", color="#0f172a", pad=14)
+    ax.axis("equal")
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def _render_rounded_bar_highlight(aspects, positive_counts, negative_counts):
+    pos_arr = np.array(positive_counts, dtype=float)
+    neg_arr = np.array(negative_counts, dtype=float)
+    totals = pos_arr + neg_arr
+
+    highlight_idx = int(np.argmax(totals)) if len(totals) > 0 and np.max(totals) > 0 else None
+    max_val = max(float(np.max(pos_arr)) if len(pos_arr) else 0.0,
+                  float(np.max(neg_arr)) if len(neg_arr) else 0.0,
+                  1.0)
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.2), facecolor="#f8fafc")
+    ax.set_facecolor("#ffffff")
+
+    x_positions = np.arange(len(aspects), dtype=float)
+    bar_width = 0.34
+    offset = 0.19
+    radius = min(bar_width * 0.28, max_val * 0.03)
+
+    if highlight_idx is not None:
+        ax.axvspan(
+            highlight_idx - 0.45,
+            highlight_idx + 0.45,
+            color="#fef9c3",
+            alpha=0.55,
+            zorder=0,
+            label="Aspek Tertinggi (Highlight)",
+        )
+
+    for idx in range(len(aspects)):
+        is_top = (highlight_idx == idx)
+        pos_val = pos_arr[idx]
+        neg_val = neg_arr[idx]
+
+        pos_color = "#15803d" if is_top else "#4ade80"
+        neg_color = "#b91c1c" if is_top else "#f87171"
+        edge_color = "#0f172a" if is_top else "none"
+        edge_lw = 1.4 if is_top else 0.0
+
+        if pos_val > 0:
+            r_pos = min(radius, pos_val * 0.45)
+            pos_patch = FancyBboxPatch(
+                (x_positions[idx] - offset - bar_width / 2, 0.0),
+                bar_width,
+                pos_val,
+                boxstyle=f"round,pad=0,rounding_size={r_pos}",
+                facecolor=pos_color,
+                edgecolor=edge_color,
+                linewidth=edge_lw,
+                zorder=3,
+            )
+            ax.add_patch(pos_patch)
+            ax.text(
+                x_positions[idx] - offset,
+                pos_val + max_val * 0.02,
+                f"{int(pos_val)}",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold" if is_top else "normal",
+                color="#0f172a",
+                zorder=4,
+            )
+
+        if neg_val > 0:
+            r_neg = min(radius, neg_val * 0.45)
+            neg_patch = FancyBboxPatch(
+                (x_positions[idx] + offset - bar_width / 2, 0.0),
+                bar_width,
+                neg_val,
+                boxstyle=f"round,pad=0,rounding_size={r_neg}",
+                facecolor=neg_color,
+                edgecolor=edge_color,
+                linewidth=edge_lw,
+                zorder=3,
+            )
+            ax.add_patch(neg_patch)
+            ax.text(
+                x_positions[idx] + offset,
+                neg_val + max_val * 0.02,
+                f"{int(neg_val)}",
+                ha="center",
+                va="bottom",
+                fontsize=8.5,
+                fontweight="bold" if is_top else "normal",
+                color="#0f172a",
+                zorder=4,
+            )
+
+    legend_handles = [
+        FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#4ade80", edgecolor="none"),
+        FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#f87171", edgecolor="none"),
+    ]
+    legend_labels = ["Positif", "Negatif"]
+    if highlight_idx is not None:
+        legend_handles.append(
+            FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#fef9c3", edgecolor="#eab308", linewidth=1.0)
+        )
+        legend_labels.append(f"Highlight: {aspects[highlight_idx]} ({int(totals[highlight_idx])})")
+
+    ax.set_xlim(-0.6, len(aspects) - 0.4)
+    ax.set_ylim(0, max_val * 1.18)
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(
+        [f"★ {a}" if highlight_idx == i else a for i, a in enumerate(aspects)],
+        fontsize=9.5,
+        fontweight="bold",
+    )
+    ax.set_ylabel("Jumlah Komentar", fontsize=9.5, color="#334155")
+    ax.set_title("Komentar per Aspek Rokok (Rounded Bar + Highlight)", fontsize=11.5, fontweight="bold", color="#0f172a", pad=12)
+    ax.grid(axis="y", linestyle="--", alpha=0.4, color="#cbd5e1", zorder=1)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(legend_handles, legend_labels, loc="upper right", frameon=True, facecolor="white", edgecolor="#e2e8f0", fontsize=8.5)
+
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
 def survey_monitoring_page():
     st.title("📊 Monitoring Survey Konsumen")
     survey_df = load_survey_data()
@@ -792,19 +1012,23 @@ def survey_monitoring_page():
             hide_index=True,
         )
 
-        st.markdown("#### 🥧 Pie Chart Penerimaan D.76 Aksara Berdasarkan BUMO")
+        st.markdown("#### 🍩 Donut + Center KPI Penerimaan D.76 Aksara Berdasarkan BUMO")
         status_counts = bumo_summary["Status Acceptable D.76 Aksara"].value_counts()
-        status_fig, status_ax = plt.subplots(figsize=(7, 5))
-        status_ax.pie(
-            status_counts.values,
-            labels=status_counts.index,
-            autopct="%1.1f%%",
-            startangle=90,
+        status_color_map = {
+            "Diterima": "#16a34a",
+            "Tidak Diterima": "#dc2626",
+            "Imbang / Perlu Evaluasi": "#f59e0b",
+        }
+        status_colors = [status_color_map.get(lbl, "#3b82f6") for lbl in status_counts.index]
+        _render_donut_with_center_kpi(
+            values=status_counts.values.tolist(),
+            labels=status_counts.index.tolist(),
+            title="Proporsi Kategori Status Penerimaan BUMO",
+            kpi_value=f"{accepted_count}/{len(bumo_summary)}",
+            kpi_sublabel="BUMO Diterima",
+            colors=status_colors,
+            figsize=(7.5, 5.2),
         )
-        status_ax.set_title("Proporsi Kategori Status Penerimaan BUMO")
-        status_ax.axis("equal")
-        st.pyplot(status_fig)
-        plt.close(status_fig)
 
         st.markdown("##### Rincian per Rokok BUMO & Status Penerimaan D.76 Aksara")
         bumo_pie_labels = [
@@ -812,17 +1036,18 @@ def survey_monitoring_page():
             for _, row in bumo_summary.iterrows()
         ]
         bumo_pie_values = bumo_summary["Jumlah Responden"].tolist()
-        bumo_detail_fig, bumo_detail_ax = plt.subplots(figsize=(8, 6))
-        bumo_detail_ax.pie(
-            bumo_pie_values,
+        total_bumo_respondents = int(sum(bumo_pie_values))
+        detail_palette = ["#2563eb", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#64748b"]
+        detail_colors = [detail_palette[i % len(detail_palette)] for i in range(len(bumo_pie_values))]
+        _render_donut_with_center_kpi(
+            values=bumo_pie_values,
             labels=bumo_pie_labels,
-            autopct="%1.1f%%",
-            startangle=90,
+            title="Proporsi Responden per Rokok BUMO & Status Penerimaan",
+            kpi_value=total_bumo_respondents,
+            kpi_sublabel="Total Responden",
+            colors=detail_colors,
+            figsize=(8.5, 5.8),
         )
-        bumo_detail_ax.set_title("Proporsi Responden per Rokok BUMO & Status Penerimaan")
-        bumo_detail_ax.axis("equal")
-        st.pyplot(bumo_detail_fig)
-        plt.close(bumo_detail_fig)
 
         st.markdown("##### Rincian Kesimpulan per BUMO")
         for _, item in bumo_summary.iterrows():
@@ -835,19 +1060,7 @@ def survey_monitoring_page():
                 st.info(label)
 
     st.markdown("---")
-    positions = range(len(SURVEY_ASPECTS))
-    width = 0.36
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar([position - width / 2 for position in positions], positive_counts, width, label="Positif")
-    ax.bar([position + width / 2 for position in positions], negative_counts, width, label="Negatif")
-    ax.set_xticks(list(positions))
-    ax.set_xticklabels(SURVEY_ASPECTS)
-    ax.set_ylabel("Jumlah komentar")
-    ax.set_title("Komentar per Aspek Rokok")
-    ax.legend()
-    fig.tight_layout()
-    st.pyplot(fig)
-    plt.close(fig)
+    _render_rounded_bar_highlight(SURVEY_ASPECTS, positive_counts, negative_counts)
 
     age_values = survey_df["Range Umur Konsumen"].fillna("").astype(str).str.strip()
     age_values = age_values.replace("", "Tidak diisi")
@@ -862,17 +1075,17 @@ def survey_monitoring_page():
     ordered_ages.extend(sorted(age for age in age_counts.index if age not in SURVEY_AGE_RANGES))
     age_counts = age_counts.reindex(ordered_ages)
 
-    age_fig, age_ax = plt.subplots(figsize=(8, 6))
-    age_ax.pie(
-        age_counts.values,
-        labels=age_counts.index,
-        autopct="%1.1f%%",
-        startangle=90,
+    age_palette = ["#0ea5e9", "#22c55e", "#eab308", "#f97316", "#a855f7", "#94a3b8"]
+    age_colors = [age_palette[i % len(age_palette)] for i in range(len(age_counts))]
+    _render_donut_with_center_kpi(
+        values=age_counts.values.tolist(),
+        labels=age_counts.index.tolist(),
+        title="Sebaran Range Umur Konsumen",
+        kpi_value=int(age_counts.sum()),
+        kpi_sublabel="Total Konsumen",
+        colors=age_colors,
+        figsize=(8.0, 5.5),
     )
-    age_ax.set_title("Sebaran Range Umur Konsumen")
-    age_ax.axis("equal")
-    st.pyplot(age_fig)
-    plt.close(age_fig)
 
 
 def recap_page(df):
