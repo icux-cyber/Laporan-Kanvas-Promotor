@@ -177,7 +177,6 @@ h1, h2, h3, h4 {
     line-height: 1.32;
 }
 
-/* Tab Login / Navigasi bernuansa Emas & Hitam */
 button[data-baseweb="tab"] {
     font-weight: 700 !important;
     color: #475569 !important;
@@ -324,89 +323,77 @@ def _get_banner_base64():
         return base64.b64encode(img_file.read()).decode("utf-8")
 
 
-def _resolve_brand_file_path():
-    candidate_paths = [
-        BRAND_DATA_FILE,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), BRAND_DATA_FILE),
-    ]
-    for path in candidate_paths:
-        if path and os.path.exists(path):
-            return path
+FALLBACK_BUMO_BRANDS = [
+    "D. 76 12",
+    "D. SUPER 12",
+    "BLACK 16",
+    "GG Surya Merah F 12",
+    "A Mild 16",
+    "LA LIGHTS 16",
+    "Marlboro Red 20",
+]
+
+
+def _resolve_brand_data_path():
+    """Mencari file JSON daftar merek rokok di direktori kerja saat ini maupun direktori script."""
+    if os.path.exists(BRAND_DATA_FILE):
+        return BRAND_DATA_FILE
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.join(script_dir, BRAND_DATA_FILE)
+    if os.path.exists(candidate):
+        return candidate
     return None
 
 
-@st.cache_data(show_spinner=False)
-def _read_brands_from_json(resolved_path, _file_mtime):
-    with open(resolved_path, "r", encoding="utf-8") as file:
-        payload = json.load(file)
-
-    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
-    cleaned_brands = []
-    seen = set()
-    for item in raw_brands:
-        if isinstance(item, str):
-            name = item.strip()
-            if name and name not in seen:
-                seen.add(name)
-                cleaned_brands.append(name)
-    return cleaned_brands
-
-
-def _resolve_brand_file_path():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    candidate_paths = [
-        os.path.join(base_dir, BRAND_DATA_FILE),
-        BRAND_DATA_FILE,
-        os.path.join(os.getcwd(), BRAND_DATA_FILE),
-    ]
-    for path in candidate_paths:
-        if path and os.path.isfile(path):
-            return os.path.abspath(path)
-    return None
-
-
-@st.cache_data(show_spinner=False)
-def _read_brands_from_json(resolved_path, _file_mtime):
-    with open(resolved_path, "r", encoding="utf-8-sig") as file:
-        payload = json.load(file)
-
-    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
-    cleaned_brands = []
-    seen = set()
-    for item in raw_brands:
-        if isinstance(item, str):
-            name = item.strip()
-            if name and name not in seen:
-                seen.add(name)
-                cleaned_brands.append(name)
-    return cleaned_brands
-
-
-def load_bumo_options(with_meta=False):
-    resolved_path = _resolve_brand_file_path()
+def _collect_brand_names(raw_brands):
     brands = []
-    source_info = "fallback"
+    seen = set()
+    if not isinstance(raw_brands, list):
+        return brands
+    for item in raw_brands:
+        if isinstance(item, str):
+            cleaned = item.strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                brands.append(cleaned)
+    return brands
 
-    if resolved_path:
+
+@st.cache_data(show_spinner=False)
+def load_bumo_options():
+    """Memuat daftar merek rokok BUMO dari file JSON."""
+    brands = []
+    loaded_from_json = False
+    json_path = _resolve_brand_data_path()
+
+    if json_path:
         try:
-            mtime = os.path.getmtime(resolved_path)
-            brands = _read_brands_from_json(resolved_path, mtime)
-            if brands:
-                source_info = f"json ({len(brands)} merk)"
-        except Exception as err:
-            source_info = f"error ({err})"
-            brands = []
+            with open(json_path, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+            if isinstance(payload, dict):
+                raw_list = (
+                    payload.get("daftar_merk_rokok")
+                    or payload.get("merk_rokok")
+                    or payload.get("brands")
+                    or []
+                )
+                brands = _collect_brand_names(raw_list)
+                loaded_from_json = len(brands) > 0
+            elif isinstance(payload, list):
+                brands = _collect_brand_names(payload)
+                loaded_from_json = len(brands) > 0
+        except (OSError, json.JSONDecodeError):
+            loaded_from_json = False
 
     if not brands:
         brands = list(FALLBACK_BUMO_BRANDS)
 
-    if "Lainnya" not in brands:
+    seen = set(brands)
+    if "Lainnya" not in seen:
         brands.append("Lainnya")
 
-    options = [""] + brands
-    if with_meta:
-        return options, source_info, resolved_path
-    return options
+    return [""] + brands, loaded_from_json, len(brands) - (1 if "Lainnya" in brands else 0)
+
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
@@ -920,7 +907,11 @@ def consumer_survey_entry_page(locked_promoter=None):
     """, unsafe_allow_html=True)
 
     version = st.session_state.get("survey_form_version", 0)
-    bumo_options = load_bumo_options()
+    bumo_options, loaded_from_json, brand_count = load_bumo_options()
+    if loaded_from_json:
+        st.caption(f"📚 Daftar BUMO terhubung ke `{BRAND_DATA_FILE}` ({brand_count} merek rokok unik).")
+    else:
+        st.caption(f"⚠️ File `{BRAND_DATA_FILE}` tidak ditemukan/kosong; menggunakan daftar cadangan.")
 
     c_id1, c_id2 = st.columns(2)
     with c_id1:
@@ -943,13 +934,22 @@ def consumer_survey_entry_page(locked_promoter=None):
             "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
         )
         pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
-        bumo = st.selectbox(
+        bumo_choice = st.selectbox(
             "BUMO Rokok Konsumen",
             bumo_options,
             index=0,
             format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
             key=f"survey_bumo_{version}",
         )
+        if bumo_choice == "Lainnya":
+            bumo_custom = st.text_input(
+                "Tuliskan BUMO Rokok Konsumen (Lainnya)",
+                placeholder="Contoh: Merek rokok lainnya...",
+                key=f"survey_bumo_other_{version}",
+            ).strip()
+            bumo = bumo_custom or "Lainnya"
+        else:
+            bumo = bumo_choice
 
     st.markdown("#### 📢 Awareness Djarum 76 Aksara")
     tahu_76_aksara = st.radio(
@@ -1825,7 +1825,6 @@ def backup_restore_page(df):
 
 init_db()
 
-# Auto-restore setiap kali aplikasi dibuka atau halaman di-refresh
 if not st.session_state.get("initial_restore_done", False):
     with st.spinner("Menyinkronkan data terbaru dari Google Sheets..."):
         ok, msg = restore_from_google_sheets()
@@ -1843,7 +1842,6 @@ if "notifikasi_sukses" in st.session_state:
 if "notifikasi_error" in st.session_state:
     st.error(st.session_state.pop("notifikasi_error"))
 
-# Gerbang Login
 auth_role = st.session_state.get("auth_role")
 if auth_role not in ("promotor", "admin"):
     login_page()
@@ -1853,7 +1851,6 @@ is_admin = auth_role == "admin"
 logged_promoter = st.session_state.get("auth_promotor")
 promotor_module = st.session_state.get("promotor_assigned_module", "kanvas")
 
-# Sidebar User Card & Status Sinkronisasi
 if is_admin:
     st.sidebar.markdown("""
     <div class="user-pill">
@@ -1881,7 +1878,6 @@ elif restore_msg:
 
 st.sidebar.markdown("---")
 
-# Navigasi berdasarkan Role & Pilihan Login
 if is_admin:
     active_module = st.sidebar.radio(
         "Modul Utama:",
@@ -1928,7 +1924,6 @@ if st.sidebar.button("🚪 Keluar / Ganti Akun", key="btn_logout"):
         st.session_state.pop(key, None)
     st.rerun()
 
-# Routing Halaman
 if menu == "Form Entry Laporan Kanvas":
     st.markdown("""
     <div class="hero-header">
