@@ -466,6 +466,71 @@ def daily_status(df, today):
             st.success("🎉 Seluruh promotor telah melakukan entry laporan hari ini.")
 
 
+def survey_promoter_status(survey_df):
+    st.subheader("👥 Status Promotor Sudah & Belum Survey Konsumen")
+    work = survey_df.copy()
+    work["_dt"] = pd.to_datetime(work["Waktu Survey"], errors="coerce")
+    work["_tgl"] = work["_dt"].dt.strftime("%Y-%m-%d")
+
+    available_dates = sorted(work["_tgl"].dropna().unique().tolist(), reverse=True)
+    today_wib = datetime.now(TZ_WIB).strftime("%Y-%m-%d")
+    date_options = ["Semua Tanggal"] + available_dates
+    default_idx = date_options.index(today_wib) if today_wib in date_options else 0
+
+    selected_date = st.selectbox(
+        "Filter Tanggal Survey:",
+        date_options,
+        index=default_idx,
+        key="survey_promoter_status_date",
+    )
+    filtered_df = work if selected_date == "Semua Tanggal" else work[work["_tgl"] == selected_date]
+
+    promoter_names = (
+        filtered_df["Nama Promotor"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+    promoter_names = promoter_names[promoter_names != ""]
+    counts_by_promoter = promoter_names.value_counts().to_dict()
+
+    done_promoters = [p for p in PROMOTOR_ZONA if p in counts_by_promoter]
+    not_done_promoters = [p for p in PROMOTOR_ZONA if p not in counts_by_promoter]
+
+    tab_done, tab_not_done = st.tabs([
+        f"✅ Sudah Survey ({len(done_promoters)})",
+        f"⚠️ Belum Survey ({len(not_done_promoters)})",
+    ])
+    with tab_done:
+        if done_promoters:
+            done_rows = [
+                {
+                    "Nama Promotor": p,
+                    "Zona": PROMOTOR_ZONA[p],
+                    "Jumlah Survey": int(counts_by_promoter[p]),
+                }
+                for p in done_promoters
+            ]
+            st.success(f"Terdapat **{len(done_promoters)}** promotor yang sudah melakukan survey konsumen.")
+            st.dataframe(pd.DataFrame(done_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("📭 Belum ada promotor yang melakukan survey konsumen pada periode ini.")
+    with tab_not_done:
+        if not_done_promoters:
+            not_done_rows = [
+                {
+                    "Nama Promotor": p,
+                    "Zona": PROMOTOR_ZONA[p],
+                    "Jumlah Survey": 0,
+                }
+                for p in not_done_promoters
+            ]
+            st.warning(f"⚠️ Terdapat **{len(not_done_promoters)}** promotor yang belum melakukan survey konsumen.")
+            st.dataframe(pd.DataFrame(not_done_rows), use_container_width=True, hide_index=True)
+        else:
+            st.success("🎉 Seluruh promotor telah melakukan survey konsumen.")
+
+
 def consumer_survey_entry_page():
     st.title("📝 Entry Survey Konsumen")
     version = st.session_state.get("survey_form_version", 0)
@@ -681,6 +746,9 @@ def survey_monitoring_page():
         st.info("📭 Belum ada data survey untuk dimonitor.")
         return
 
+    survey_promoter_status(survey_df)
+    st.markdown("---")
+
     positive_counts = [
         survey_df[f"Komentar Positif - {aspect}"].fillna("").astype(str).str.strip().ne("").sum()
         for aspect in SURVEY_ASPECTS
@@ -723,6 +791,38 @@ def survey_monitoring_page():
             use_container_width=True,
             hide_index=True,
         )
+
+        st.markdown("#### 🥧 Pie Chart Penerimaan D.76 Aksara Berdasarkan BUMO")
+        status_counts = bumo_summary["Status Acceptable D.76 Aksara"].value_counts()
+        status_fig, status_ax = plt.subplots(figsize=(7, 5))
+        status_ax.pie(
+            status_counts.values,
+            labels=status_counts.index,
+            autopct="%1.1f%%",
+            startangle=90,
+        )
+        status_ax.set_title("Proporsi Kategori Status Penerimaan BUMO")
+        status_ax.axis("equal")
+        st.pyplot(status_fig)
+        plt.close(status_fig)
+
+        st.markdown("##### Rincian per Rokok BUMO & Status Penerimaan D.76 Aksara")
+        bumo_pie_labels = [
+            f"{row['BUMO Rokok Konsumen']} [{row['Status Acceptable D.76 Aksara']}]"
+            for _, row in bumo_summary.iterrows()
+        ]
+        bumo_pie_values = bumo_summary["Jumlah Responden"].tolist()
+        bumo_detail_fig, bumo_detail_ax = plt.subplots(figsize=(8, 6))
+        bumo_detail_ax.pie(
+            bumo_pie_values,
+            labels=bumo_pie_labels,
+            autopct="%1.1f%%",
+            startangle=90,
+        )
+        bumo_detail_ax.set_title("Proporsi Responden per Rokok BUMO & Status Penerimaan")
+        bumo_detail_ax.axis("equal")
+        st.pyplot(bumo_detail_fig)
+        plt.close(bumo_detail_fig)
 
         st.markdown("##### Rincian Kesimpulan per BUMO")
         for _, item in bumo_summary.iterrows():
@@ -870,6 +970,72 @@ def log_page(df):
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 
+def admin_protected_data_actions(df, today):
+    st.markdown("---")
+    st.subheader("🔐 Aksi Data Terproteksi (Hapus Per Baris, Unduh Laporan, & Hapus Data)")
+    if "data_actions_authenticated" not in st.session_state:
+        st.session_state["data_actions_authenticated"] = False
+
+    if not st.session_state["data_actions_authenticated"]:
+        with st.form("form_login_aksi_data"):
+            password = st.text_input("Masukkan Password Admin untuk membuka menu ini:", type="password")
+            unlock = st.form_submit_button("🔓 Buka Menu Hapus & Unduh Data", type="primary")
+        if unlock:
+            if password == ADMIN_PASSWORD:
+                st.session_state["data_actions_authenticated"] = True
+                st.rerun()
+            st.error("❌ Password salah!")
+        return
+
+    if st.button("🔒 Kunci Kembali Menu Hapus & Unduh Data", key="lock_data_actions"):
+        st.session_state["data_actions_authenticated"] = False
+        st.rerun()
+
+    st.markdown("#### 🗑️ Hapus Data Per Baris")
+    delete_id = st.selectbox(
+        "Pilih laporan yang akan dihapus:",
+        df["ID"].tolist(),
+        format_func=lambda value: f"ID #{value} — {df.loc[df['ID'] == value, 'Tanggal'].iloc[0]} — {df.loc[df['ID'] == value, 'Nama Promotor'].iloc[0]}",
+        key="delete_single_report_id",
+    )
+    with st.form("form_hapus_satu_laporan"):
+        confirm_single_delete = st.checkbox("Saya yakin ingin menghapus laporan yang dipilih.")
+        delete_single = st.form_submit_button("🗑️ Hapus Laporan Terpilih", type="secondary")
+    if delete_single:
+        if not confirm_single_delete:
+            st.error("Centang konfirmasi sebelum menghapus laporan.")
+        else:
+            with sqlite3.connect(DB_NAME) as conn:
+                conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
+            st.session_state["notifikasi_sukses"] = f"🗑️ Laporan ID #{delete_id} berhasil dihapus."
+            st.rerun()
+
+    st.markdown("#### 📥 Unduh Laporan")
+    scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
+    exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        exported.to_excel(writer, index=False, sheet_name="Laporan Kanvas")
+    st.download_button(
+        f"💾 Download Excel ({scope})",
+        output.getvalue(),
+        file_name=f"laporan_kanvas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    st.markdown("#### 🗑️ Hapus Data")
+    delete_scope = st.selectbox("Pilih Data yang Dihapus:", ["Hari Ini", "Semua Data"], key="opt_hapus")
+    confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
+    if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
+        with sqlite3.connect(DB_NAME) as conn:
+            if delete_scope == "Hari Ini":
+                conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
+            else:
+                conn.execute("DELETE FROM kanvas")
+        st.success("🗑️ Data berhasil dihapus.")
+        st.rerun()
+
+
 def management_page(df, today):
     st.title("🛠️ Manajemen Data (Edit, Unduh, & Hapus)")
     if df.empty:
@@ -914,42 +1080,8 @@ def management_page(df, today):
             conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
         st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
         st.rerun()
-    st.markdown("#### 🗑️ Hapus Data Per Baris")
-    delete_id = st.selectbox(
-        "Pilih laporan yang akan dihapus:",
-        df["ID"].tolist(),
-        format_func=lambda value: f"ID #{value} — {df.loc[df['ID'] == value, 'Tanggal'].iloc[0]} — {df.loc[df['ID'] == value, 'Nama Promotor'].iloc[0]}",
-        key="delete_single_report_id",
-    )
-    with st.form("form_hapus_satu_laporan"):
-        confirm_single_delete = st.checkbox("Saya yakin ingin menghapus laporan yang dipilih.")
-        delete_single = st.form_submit_button("🗑️ Hapus Laporan Terpilih", type="secondary")
-    if delete_single:
-        if not confirm_single_delete:
-            st.error("Centang konfirmasi sebelum menghapus laporan.")
-        else:
-            with sqlite3.connect(DB_NAME) as conn:
-                conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
-            st.session_state["notifikasi_sukses"] = f"🗑️ Laporan ID #{delete_id} berhasil dihapus."
-            st.rerun()
-    st.markdown("#### 📥 Unduh Laporan")
-    scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
-    exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        exported.to_excel(writer, index=False, sheet_name="Laporan Kanvas")
-    st.download_button(f"💾 Download Excel ({scope})", output.getvalue(), file_name=f"laporan_kanvas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    st.markdown("#### 🗑️ Hapus Data")
-    delete_scope = st.selectbox("Pilih Data yang Dihapus:", ["Hari Ini", "Semua Data"], key="opt_hapus")
-    confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
-    if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
-        with sqlite3.connect(DB_NAME) as conn:
-            if delete_scope == "Hari Ini":
-                conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
-            else:
-                conn.execute("DELETE FROM kanvas")
-        st.success("🗑️ Data berhasil dihapus.")
-        st.rerun()
+
+    admin_protected_data_actions(df, today)
 
 
 def backup_restore_page(df):
@@ -1027,6 +1159,7 @@ def backup_restore_page(df):
             st.error(f"❌ Gagal menghubungi Google Sheets: {err}")
         except ValueError:
             st.error("❌ Respons backup dari Google Sheets bukan JSON yang valid.")
+
 
 init_db()
 
