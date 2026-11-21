@@ -674,6 +674,49 @@ def load_survey_data():
     return _load_survey_cached(_get_db_mtime())
 
 
+def _post_to_webhook(payload, timeout=12):
+    try:
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=timeout)
+    except requests.RequestException as error:
+        raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
+    if not response.ok:
+        raise RuntimeError(f"Webhook Google Sheets merespons HTTP {response.status_code}.")
+    try:
+        result = response.json()
+    except ValueError as error:
+        raise RuntimeError("Respons webhook Google Sheets bukan JSON yang valid.") from error
+    if not isinstance(result, dict) or result.get("status") != "success":
+        message = (
+            result.get("message", "Permintaan ditolak oleh Google Sheets.")
+            if isinstance(result, dict)
+            else "Respons webhook tidak valid."
+        )
+        raise RuntimeError(message)
+    return result
+
+
+def sync_kanvas_to_sheets(action, target):
+    """Sinkronisasi perubahan/penghapusan data kanvas bertarget ke sheet DataKanvasAksara."""
+    payload = {"type": "kanvas", "action": action}
+    if action == "upsert":
+        if not isinstance(target, dict):
+            raise ValueError("Payload upsert kanvas harus berupa dictionary.")
+        payload.update(target)
+    elif action == "delete":
+        payload["id"] = int(target)
+    elif action == "delete_by_date":
+        payload["tanggal"] = str(target)
+    elif action == "delete_all":
+        pass
+    else:
+        raise ValueError(f"Aksi sinkronisasi kanvas tidak dikenal: {action}")
+
+    result = _post_to_webhook(payload, timeout=15)
+    if result.get("type") not in (None, "kanvas"):
+        raise RuntimeError("Respons webhook tidak mengonfirmasi sinkronisasi kanvas.")
+    return result
+
+
 def save_report(data):
     columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS, "waktu_submit"]
     with _get_db_connection() as conn:
@@ -684,8 +727,8 @@ def save_report(data):
         data_with_id = {"id": int(cursor.lastrowid), **data}
     _invalidate_data_caches()
     try:
-        requests.post(WEBHOOK_URL, json=data_with_id, timeout=12).raise_for_status()
-    except requests.RequestException:
+        sync_kanvas_to_sheets("upsert", data_with_id)
+    except RuntimeError:
         pass
 
 
@@ -698,19 +741,7 @@ def sync_survey_to_sheets(action, survey):
     else:
         raise ValueError(f"Aksi sinkronisasi survey tidak dikenal: {action}")
 
-    try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=12)
-    except requests.RequestException as error:
-        raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
-    if not response.ok:
-        raise RuntimeError(f"Webhook Google Sheets merespons HTTP {response.status_code}.")
-    try:
-        result = response.json()
-    except ValueError as error:
-        raise RuntimeError("Respons webhook Google Sheets bukan JSON yang valid.") from error
-    if not isinstance(result, dict) or result.get("status") != "success":
-        message = result.get("message", "Permintaan survey ditolak.") if isinstance(result, dict) else "Respons webhook tidak valid."
-        raise RuntimeError(message)
+    result = _post_to_webhook(payload, timeout=12)
     if result.get("type") != "survey_konsumen" or result.get("action") != action:
         raise RuntimeError("Respons webhook tidak mengonfirmasi sinkronisasi survey yang diminta.")
 
@@ -1763,11 +1794,18 @@ def admin_protected_data_actions(df, today):
         if not confirm_single_delete:
             st.error("Centang konfirmasi sebelum menghapus laporan.")
         else:
-            with _get_db_connection() as conn:
-                conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
-            _invalidate_data_caches()
-            st.session_state["notifikasi_sukses"] = f"🗑️ Laporan ID #{delete_id} berhasil dihapus."
-            st.rerun()
+            try:
+                sync_kanvas_to_sheets("delete", int(delete_id))
+            except RuntimeError as error:
+                st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
+            else:
+                with _get_db_connection() as conn:
+                    conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
+                _invalidate_data_caches()
+                st.session_state["notifikasi_sukses"] = (
+                    f"🗑️ Laporan ID #{delete_id} berhasil dihapus dari lokal & Google Sheets."
+                )
+                st.rerun()
 
     st.markdown("#### 📥 Unduh Laporan")
     scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
@@ -1786,14 +1824,24 @@ def admin_protected_data_actions(df, today):
     delete_scope = st.selectbox("Pilih Data yang Dihapus:", ["Hari Ini", "Semua Data"], key="opt_hapus")
     confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
     if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
-        with _get_db_connection() as conn:
+        try:
             if delete_scope == "Hari Ini":
-                conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
+                sync_kanvas_to_sheets("delete_by_date", today)
             else:
-                conn.execute("DELETE FROM kanvas")
-        _invalidate_data_caches()
-        st.success("🗑️ Data berhasil dihapus.")
-        st.rerun()
+                sync_kanvas_to_sheets("delete_all", None)
+        except RuntimeError as error:
+            st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
+        else:
+            with _get_db_connection() as conn:
+                if delete_scope == "Hari Ini":
+                    conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
+                else:
+                    conn.execute("DELETE FROM kanvas")
+            _invalidate_data_caches()
+            st.session_state["notifikasi_sukses"] = (
+                f"🗑️ Data ({delete_scope}) berhasil dihapus dari lokal & Google Sheets."
+            )
+            st.rerun()
 
 
 def management_page(df, today, is_admin=True, locked_promoter=None):
@@ -1863,7 +1911,26 @@ def management_page(df, today, is_admin=True, locked_promoter=None):
         with _get_db_connection() as conn:
             conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
         _invalidate_data_caches()
-        st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
+
+        updated_record = {
+            "id": int(selected_id),
+            "tanggal": edit_date.strftime("%Y-%m-%d"),
+            "nama_promotor": edit_promoter,
+            "zona": PROMOTOR_ZONA[edit_promoter],
+            "brand": edit_brand,
+            **{key: int(edit_values[key]) for key in FIELD_LABELS},
+            "waktu_submit": str(row["Waktu Submit"]),
+        }
+        try:
+            sync_kanvas_to_sheets("upsert", updated_record)
+        except RuntimeError as error:
+            st.session_state["notifikasi_error"] = (
+                f"Data ID #{selected_id} diperbarui di lokal, tetapi gagal sync ke Google Sheets: {error}"
+            )
+        else:
+            st.session_state["notifikasi_sukses"] = (
+                f"✏️ Data ID #{selected_id} berhasil diperbarui di lokal & Google Sheets!"
+            )
         st.rerun()
 
     if is_admin:
@@ -1918,17 +1985,10 @@ def backup_restore_page(df):
             "rows": rows_payload,
         }
         try:
-            response = requests.post(WEBHOOK_URL, json=payload, timeout=20)
-            response.raise_for_status()
-            res_json = response.json()
-            if isinstance(res_json, dict) and res_json.get("status") == "success":
-                st.success(f"✅ Berhasil menimpa & mem-backup {len(rows_payload)} data ke sheet DataKanvasAksara!")
-            else:
-                st.error(f"❌ Backup gagal: {res_json}")
-        except requests.RequestException as err:
-            st.error(f"❌ Gagal menghubungi Google Sheets: {err}")
-        except ValueError:
-            st.error("❌ Respons backup dari Google Sheets bukan JSON yang valid.")
+            _post_to_webhook(payload, timeout=20)
+            st.success(f"✅ Berhasil menimpa & mem-backup {len(rows_payload)} data ke sheet DataKanvasAksara!")
+        except RuntimeError as err:
+            st.error(f"❌ Backup gagal: {err}")
 
 
 init_db()
