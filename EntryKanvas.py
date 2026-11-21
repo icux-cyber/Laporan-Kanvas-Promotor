@@ -19,6 +19,7 @@ from PIL import Image as PILImage
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
 BRAND_DATA_FILE = "Merk_Rokok_All_Pabrikan_&_Nama_Karyawan.json"
+BANNER_IMAGE_FILE = "76aksara.png"
 WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyRAigBCyzy2RZYD0FgeMc5PaiZbEVMSnCWJ2s--QGi1P3WMjqZE7hmhnel9C-nX1Ri/exec"
 ADMIN_PASSWORD = "admin123"
 
@@ -131,9 +132,23 @@ h1, h2, h3, h4 {
     letter-spacing: -0.02em;
 }
 
+.login-banner-frame {
+    background: #09090b;
+    padding: 0.55rem;
+    border-radius: 18px;
+    border: 1px solid #27272a;
+    box-shadow: 0 14px 30px -8px rgba(15, 23, 42, 0.35);
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.login-banner-frame div[data-testid="stImage"] img {
+    border-radius: 13px;
+}
+
 .hero-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #b91c1c 100%);
-    padding: 2rem 2.2rem;
+    padding: 1.65rem 2rem;
     border-radius: 18px;
     color: #ffffff;
     box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.32);
@@ -142,13 +157,13 @@ h1, h2, h3, h4 {
 }
 .hero-header h1 {
     color: #ffffff !important;
-    font-size: 1.85rem;
+    font-size: 1.75rem;
     margin: 0 0 0.35rem 0;
     font-weight: 800;
 }
 .hero-header p {
     color: #cbd5e1;
-    font-size: 0.96rem;
+    font-size: 0.95rem;
     margin: 0;
 }
 .hero-badge {
@@ -516,8 +531,13 @@ def sync_survey_to_sheets(action, survey):
 
 
 def login_page():
-    _, center_col, _ = st.columns([1, 2.2, 1])
+    _, center_col, _ = st.columns([0.8, 2.6, 0.8])
     with center_col:
+        if os.path.exists(BANNER_IMAGE_FILE):
+            st.markdown('<div class="login-banner-frame">', unsafe_allow_html=True)
+            st.image(BANNER_IMAGE_FILE, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
         st.markdown("""
         <div class="hero-header">
             <div class="hero-badge">Djarum 76 Aksara • Field Operation Portal</div>
@@ -1750,7 +1770,6 @@ if is_admin:
             "Backup & Restore Google Sheets",
         ])
 else:
-    # Promotor terkunci pada modul yang dipilih saat login
     if promotor_module == "survey":
         survey_menu = st.sidebar.radio(
             "Menu Survey Konsumen:",
