@@ -612,6 +612,67 @@ def survey_log_page():
                     st.rerun()
 
 
+def build_bumo_acceptability_summary(survey_df):
+    work = survey_df.copy()
+    pos_cols = [f"Komentar Positif - {aspect}" for aspect in SURVEY_ASPECTS]
+    neg_cols = [f"Komentar Negatif - {aspect}" for aspect in SURVEY_ASPECTS]
+
+    work["_pos_count"] = sum(
+        work[col].fillna("").astype(str).str.strip().ne("").astype(int)
+        for col in pos_cols
+    )
+    work["_neg_count"] = sum(
+        work[col].fillna("").astype(str).str.strip().ne("").astype(int)
+        for col in neg_cols
+    )
+    work["_bumo"] = (
+        work["BUMO Rokok Konsumen"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace("", "Tidak Diisi")
+    )
+
+    records = []
+    for bumo_name, group in work.groupby("_bumo", sort=False):
+        pos_total = int(group["_pos_count"].sum())
+        neg_total = int(group["_neg_count"].sum())
+        respondents = int(len(group))
+        if pos_total > neg_total:
+            status = "Diterima"
+            kesimpulan = (
+                f"Diterima — respon positif ({pos_total}) lebih banyak daripada respon negatif ({neg_total})."
+            )
+        elif neg_total > pos_total:
+            status = "Tidak Diterima"
+            kesimpulan = (
+                f"Tidak Diterima — respon negatif ({neg_total}) lebih banyak daripada respon positif ({pos_total})."
+            )
+        else:
+            status = "Imbang / Perlu Evaluasi"
+            kesimpulan = (
+                f"Imbang — jumlah respon positif ({pos_total}) sama dengan respon negatif ({neg_total})."
+            )
+
+        records.append({
+            "BUMO Rokok Konsumen": bumo_name,
+            "Jumlah Responden": respondents,
+            "Respon Positif": pos_total,
+            "Respon Negatif": neg_total,
+            "Selisih (Pos - Neg)": pos_total - neg_total,
+            "Status Acceptable D.76 Aksara": status,
+            "Kesimpulan": kesimpulan,
+        })
+
+    summary_df = pd.DataFrame(records)
+    if not summary_df.empty:
+        summary_df = summary_df.sort_values(
+            by=["Jumlah Responden", "Respon Positif"],
+            ascending=[False, False],
+        ).reset_index(drop=True)
+    return summary_df
+
+
 def survey_monitoring_page():
     st.title("📊 Monitoring Survey Konsumen")
     survey_df = load_survey_data()
@@ -632,6 +693,47 @@ def survey_monitoring_page():
     metrics[1].metric("Komentar Positif", sum(positive_counts))
     metrics[2].metric("Komentar Negatif", sum(negative_counts))
 
+    st.markdown("---")
+    st.subheader("🎯 Kesimpulan Acceptable D.76 Aksara Berdasarkan BUMO")
+    st.caption(
+        "Kriteria: Jika jumlah respon positif > respon negatif maka D.76 Aksara Diterima; "
+        "jika respon negatif > respon positif maka Tidak Diterima."
+    )
+    bumo_summary = build_bumo_acceptability_summary(survey_df)
+    if not bumo_summary.empty:
+        accepted_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Diterima").sum())
+        rejected_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Tidak Diterima").sum())
+        tie_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Imbang / Perlu Evaluasi").sum())
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("BUMO Diterima", accepted_count)
+        k2.metric("BUMO Tidak Diterima", rejected_count)
+        k3.metric("BUMO Imbang", tie_count)
+
+        st.dataframe(
+            bumo_summary[[
+                "BUMO Rokok Konsumen",
+                "Jumlah Responden",
+                "Respon Positif",
+                "Respon Negatif",
+                "Selisih (Pos - Neg)",
+                "Status Acceptable D.76 Aksara",
+            ]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.markdown("##### Rincian Kesimpulan per BUMO")
+        for _, item in bumo_summary.iterrows():
+            label = f"**{item['BUMO Rokok Konsumen']}** ({item['Jumlah Responden']} responden): {item['Kesimpulan']}"
+            if item["Status Acceptable D.76 Aksara"] == "Diterima":
+                st.success(label)
+            elif item["Status Acceptable D.76 Aksara"] == "Tidak Diterima":
+                st.error(label)
+            else:
+                st.info(label)
+
+    st.markdown("---")
     positions = range(len(SURVEY_ASPECTS))
     width = 0.36
     fig, ax = plt.subplots(figsize=(10, 5))
