@@ -81,6 +81,16 @@ SURVEY_AWARENESS_SOURCES = [
     "Media Sosial (Facebook, IG, TikTok, dll)",
     "Teman / Tetangga",
 ]
+SURVEY_BUY_WARUNG_OPTIONS = ["Ya", "Tidak", "Pikir-Pikir"]
+SURVEY_LONG_TERM_OPTIONS = [
+    "Ya (Jadi Rokok Utama)",
+    "Belum Tentu (Jadi Rokok Selingan)",
+    "Tidak Sama sekali",
+]
+SURVEY_EXTRA_FIELDS = {
+    "Bersedia Beli di Warung/Toko/Minimarket": "bersedia_beli_warung",
+    "Beralih Konsumsi Jangka Panjang": "beralih_jangka_panjang",
+}
 SURVEY_FEEDBACK_FIELDS = {
     "Komentar Positif - Rasa": "komentar_positif_rasa",
     "Komentar Positif - Aroma": "komentar_positif_aroma",
@@ -149,10 +159,11 @@ def init_db():
             nama_promotor TEXT NOT NULL, sektor_survey TEXT, nama_konsumen TEXT,
             range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
             bumo_rokok_konsumen TEXT, tahu_76_aksara TEXT, sumber_info_76_aksara TEXT,
+            bersedia_beli_warung TEXT, beralih_jangka_panjang TEXT,
             komentar_positif TEXT, komentar_negatif TEXT
         )""")
         survey_columns = {row[1] for row in conn.execute("PRAGMA table_info(survey_konsumen)")}
-        for extra_col in ("tahu_76_aksara", "sumber_info_76_aksara"):
+        for extra_col in ("tahu_76_aksara", "sumber_info_76_aksara", *SURVEY_EXTRA_FIELDS.values()):
             if extra_col not in survey_columns:
                 conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {extra_col} TEXT")
                 survey_columns.add(extra_col)
@@ -227,6 +238,7 @@ def restore_from_google_sheets():
         "id", "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
         "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
         "tahu_76_aksara", "sumber_info_76_aksara",
+        *SURVEY_EXTRA_FIELDS.values(),
         *SURVEY_FEEDBACK_FIELDS.values(),
     ]
 
@@ -272,6 +284,7 @@ def restore_from_google_sheets():
                 str(row.get("bumo_rokok_konsumen", "")).strip(),
                 str(row.get("tahu_76_aksara", "")).strip(),
                 str(row.get("sumber_info_76_aksara", "")).strip(),
+                *[str(row.get(col, "") or "").strip() for col in SURVEY_EXTRA_FIELDS.values()],
                 *[str(row.get(col, "") or "").strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
             ]
             conn.execute(
@@ -301,6 +314,9 @@ def load_data():
 
 def load_survey_data():
     with sqlite3.connect(DB_NAME) as conn:
+        extra_columns = ", ".join(
+            f"{column} AS [{label}]" for label, column in SURVEY_EXTRA_FIELDS.items()
+        )
         feedback_columns = ", ".join(
             f"{column} AS [{label}]" for label, column in SURVEY_FEEDBACK_FIELDS.items()
         )
@@ -311,6 +327,7 @@ def load_survey_data():
             bumo_rokok_konsumen AS [BUMO Rokok Konsumen],
             tahu_76_aksara AS [Mengetahui Djarum 76 Aksara],
             sumber_info_76_aksara AS [Sumber Info Djarum 76 Aksara],
+            {extra_columns},
             {feedback_columns}
             FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
 
@@ -577,6 +594,20 @@ def consumer_survey_entry_page():
     else:
         sumber_info_str = ""
 
+    st.markdown("#### 🛒 Minat Pembelian & Jangka Panjang Setelah Mencoba")
+    bersedia_beli_warung = st.radio(
+        "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket?",
+        SURVEY_BUY_WARUNG_OPTIONS,
+        horizontal=True,
+        key=f"survey_bersedia_beli_warung_{version}",
+    )
+    beralih_jangka_panjang = st.radio(
+        "Apakah setelah mencoba Anda akan beralih mengkonsumsi rokok ini dalam jangka panjang?",
+        SURVEY_LONG_TERM_OPTIONS,
+        horizontal=True,
+        key=f"survey_beralih_jangka_panjang_{version}",
+    )
+
     with st.form(f"form_survey_konsumen_{version}"):
         positive_comments = {}
         negative_comments = {}
@@ -605,6 +636,7 @@ def consumer_survey_entry_page():
             "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
             "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
             "tahu_76_aksara", "sumber_info_76_aksara",
+            *SURVEY_EXTRA_FIELDS.values(),
             *SURVEY_FEEDBACK_FIELDS.values(),
         ]
         values = [
@@ -612,6 +644,7 @@ def consumer_survey_entry_page():
             nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
             range_usia, pekerjaan.strip(), bumo,
             tahu_76_aksara, sumber_info_str,
+            bersedia_beli_warung, beralih_jangka_panjang,
             *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
         ]
         with sqlite3.connect(DB_NAME) as conn:
@@ -983,6 +1016,60 @@ def survey_monitoring_page():
     metrics[2].metric("Komentar Negatif", sum(negative_counts))
 
     st.markdown("---")
+    st.subheader("🛒 Kesediaan Membeli di Warung/Toko/Minimarket & Beralih Jangka Panjang")
+    c_buy, c_long = st.columns(2)
+
+    with c_buy:
+        buy_col = "Bersedia Beli di Warung/Toko/Minimarket"
+        buy_series = survey_df[buy_col].fillna("").astype(str).str.strip().replace("", "Tidak Diisi")
+        buy_counts = buy_series.value_counts()
+        ordered_buy = [opt for opt in SURVEY_BUY_WARUNG_OPTIONS if opt in buy_counts.index]
+        ordered_buy.extend(sorted(opt for opt in buy_counts.index if opt not in SURVEY_BUY_WARUNG_OPTIONS))
+        buy_counts = buy_counts.reindex(ordered_buy)
+        buy_color_map = {
+            "Ya": "#16a34a",
+            "Tidak": "#dc2626",
+            "Pikir-Pikir": "#f59e0b",
+            "Tidak Diisi": "#94a3b8",
+        }
+        buy_colors = [buy_color_map.get(lbl, "#3b82f6") for lbl in buy_counts.index]
+        ya_buy = int(buy_counts.get("Ya", 0))
+        _render_donut_with_center_kpi(
+            values=buy_counts.values.tolist(),
+            labels=buy_counts.index.tolist(),
+            title="Bersedia Beli di Warung/Toko/Minimarket",
+            kpi_value=f"{ya_buy}/{int(buy_counts.sum())}",
+            kpi_sublabel="Responden 'Ya'",
+            colors=buy_colors,
+            figsize=(7.2, 5.2),
+        )
+
+    with c_long:
+        long_col = "Beralih Konsumsi Jangka Panjang"
+        long_series = survey_df[long_col].fillna("").astype(str).str.strip().replace("", "Tidak Diisi")
+        long_counts = long_series.value_counts()
+        ordered_long = [opt for opt in SURVEY_LONG_TERM_OPTIONS if opt in long_counts.index]
+        ordered_long.extend(sorted(opt for opt in long_counts.index if opt not in SURVEY_LONG_TERM_OPTIONS))
+        long_counts = long_counts.reindex(ordered_long)
+        long_color_map = {
+            "Ya (Jadi Rokok Utama)": "#15803d",
+            "Belum Tentu (Jadi Rokok Selingan)": "#f59e0b",
+            "Tidak Sama sekali": "#dc2626",
+            "Tidak Diisi": "#94a3b8",
+        }
+        long_colors = [long_color_map.get(lbl, "#3b82f6") for lbl in long_counts.index]
+        utama_count = int(long_counts.get("Ya (Jadi Rokok Utama)", 0))
+        _render_donut_with_center_kpi(
+            values=long_counts.values.tolist(),
+            labels=long_counts.index.tolist(),
+            title="Beralih Konsumsi Jangka Panjang",
+            kpi_value=f"{utama_count}/{int(long_counts.sum())}",
+            kpi_sublabel="Jadi Rokok Utama",
+            colors=long_colors,
+            figsize=(7.2, 5.2),
+        )
+
+    st.markdown("---")
     st.subheader("🎯 Kesimpulan Acceptable D.76 Aksara Berdasarkan BUMO")
     st.caption(
         "Kriteria: Jika jumlah respon positif > respon negatif maka D.76 Aksara Diterima; "
@@ -990,14 +1077,19 @@ def survey_monitoring_page():
     )
     bumo_summary = build_bumo_acceptability_summary(survey_df)
     if not bumo_summary.empty:
-        accepted_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Diterima").sum())
-        rejected_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Tidak Diterima").sum())
-        tie_count = int((bumo_summary["Status Acceptable D.76 Aksara"] == "Imbang / Perlu Evaluasi").sum())
+        status_respondent_totals = (
+            bumo_summary.groupby("Status Acceptable D.76 Aksara", sort=False)["Jumlah Responden"]
+            .sum()
+        )
+        accepted_respondents = int(status_respondent_totals.get("Diterima", 0))
+        rejected_respondents = int(status_respondent_totals.get("Tidak Diterima", 0))
+        tie_respondents = int(status_respondent_totals.get("Imbang / Perlu Evaluasi", 0))
+        total_bumo_respondents = int(bumo_summary["Jumlah Responden"].sum())
 
         k1, k2, k3 = st.columns(3)
-        k1.metric("BUMO Diterima", accepted_count)
-        k2.metric("BUMO Tidak Diterima", rejected_count)
-        k3.metric("BUMO Imbang", tie_count)
+        k1.metric("Responden BUMO Diterima", accepted_respondents)
+        k2.metric("Responden BUMO Tidak Diterima", rejected_respondents)
+        k3.metric("Responden BUMO Imbang", tie_respondents)
 
         st.dataframe(
             bumo_summary[[
@@ -1012,20 +1104,19 @@ def survey_monitoring_page():
             hide_index=True,
         )
 
-        st.markdown("Penerimaan D.76 Aksara Berdasarkan BUMO")
-        status_counts = bumo_summary["Status Acceptable D.76 Aksara"].value_counts()
+        st.markdown("#### 🍩 Donut + Center KPI Penerimaan D.76 Aksara Berdasarkan Jumlah Responden BUMO")
         status_color_map = {
             "Diterima": "#16a34a",
             "Tidak Diterima": "#dc2626",
             "Imbang / Perlu Evaluasi": "#f59e0b",
         }
-        status_colors = [status_color_map.get(lbl, "#3b82f6") for lbl in status_counts.index]
+        status_colors = [status_color_map.get(lbl, "#3b82f6") for lbl in status_respondent_totals.index]
         _render_donut_with_center_kpi(
-            values=status_counts.values.tolist(),
-            labels=status_counts.index.tolist(),
-            title="Proporsi Kategori Status Penerimaan BUMO",
-            kpi_value=f"{accepted_count}/{len(bumo_summary)}",
-            kpi_sublabel="BUMO Diterima",
+            values=status_respondent_totals.values.tolist(),
+            labels=status_respondent_totals.index.tolist(),
+            title="Proporsi Responden per Status Penerimaan BUMO",
+            kpi_value=f"{accepted_respondents}/{total_bumo_respondents}",
+            kpi_sublabel="Responden Diterima",
             colors=status_colors,
             figsize=(7.5, 5.2),
         )
@@ -1036,7 +1127,6 @@ def survey_monitoring_page():
             for _, row in bumo_summary.iterrows()
         ]
         bumo_pie_values = bumo_summary["Jumlah Responden"].tolist()
-        total_bumo_respondents = int(sum(bumo_pie_values))
         detail_palette = ["#2563eb", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#64748b"]
         detail_colors = [detail_palette[i % len(detail_palette)] for i in range(len(bumo_pie_values))]
         _render_donut_with_center_kpi(
