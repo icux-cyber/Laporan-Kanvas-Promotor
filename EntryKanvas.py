@@ -1795,7 +1795,7 @@ def admin_protected_data_actions(df, today):
             st.error("Centang konfirmasi sebelum menghapus laporan.")
         else:
             try:
-                sync_kanvas_to_sheets("delete", int(delete_id))
+                res = sync_kanvas_to_sheets("delete", int(delete_id))
             except RuntimeError as error:
                 st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
             else:
@@ -1826,7 +1826,12 @@ def admin_protected_data_actions(df, today):
     if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
         try:
             if delete_scope == "Hari Ini":
-                sync_kanvas_to_sheets("delete_by_date", today)
+                res = (
+                    sync_kanvas_to_sheets("delete_by_date", today)
+                    if delete_scope == "Hari Ini"
+                    else sync_kanvas_to_sheets("delete_all", None)
+                ) 
+                
             else:
                 sync_kanvas_to_sheets("delete_all", None)
         except RuntimeError as error:
