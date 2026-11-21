@@ -324,7 +324,6 @@ def _get_banner_base64():
         return base64.b64encode(img_file.read()).decode("utf-8")
 
 
-@st.cache_data
 FALLBACK_BUMO_BRANDS = [
     "Djarum 76 Aksara",
     "Djarum Super",
