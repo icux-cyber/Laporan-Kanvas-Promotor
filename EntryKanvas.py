@@ -695,6 +695,38 @@ def _post_to_webhook(payload, timeout=12):
     return result
 
 
+def build_kanvas_backup_rows(df):
+    rows_payload = []
+    if df is None or df.empty:
+        return rows_payload
+
+    for _, row in df.iterrows():
+        item = {
+            "id": int(row["ID"]),
+            "tanggal": str(row["Tanggal"]),
+            "nama_promotor": str(row["Nama Promotor"]),
+            "zona": str(row["Zona"]),
+            "brand": str(row["Brand"]),
+        }
+        for key, label in FIELD_LABELS.items():
+            item[key] = int(row[label] or 0)
+        item["waktu_submit"] = str(row["Waktu Submit"])
+        rows_payload.append(item)
+    return rows_payload
+
+
+def auto_backup_kanvas_to_sheets():
+    """Auto-backup seluruh sisa data kanvas dari SQLite lokal ke Google Sheets."""
+    latest_df = load_data()
+    rows_payload = build_kanvas_backup_rows(latest_df)
+    payload = {
+        "type": "kanvas_backup",
+        "action": "replace_all",
+        "rows": rows_payload,
+    }
+    return _post_to_webhook(payload, timeout=20)
+
+
 def sync_kanvas_to_sheets(action, target):
     """Sinkronisasi perubahan/penghapusan data kanvas bertarget ke sheet DataKanvasAksara."""
     payload = {"type": "kanvas", "action": action}
@@ -1184,9 +1216,15 @@ def survey_log_page(is_admin=False, locked_promoter=None):
                             conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
                         _invalidate_data_caches()
                         st.session_state["admin_initial_restore_done"] = True
-                        st.session_state["notifikasi_sukses"] = (
-                            f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
-                        )
+                        try:
+                            auto_backup_kanvas_to_sheets()
+                            st.session_state["notifikasi_sukses"] = (
+                                f"✅ Survey ID #{delete_id} berhasil dihapus & auto-backup Google Sheets selesai."
+                            )
+                        except RuntimeError as backup_err:
+                            st.session_state["notifikasi_error"] = (
+                                f"⚠️ Survey ID #{delete_id} terhapus, tetapi auto-backup Google Sheets gagal: {backup_err}"
+                            )
                         st.rerun()
 
 
@@ -1796,25 +1834,22 @@ def admin_protected_data_actions(df, today):
             st.error("Centang konfirmasi sebelum menghapus laporan.")
         else:
             try:
-                res = sync_kanvas_to_sheets("delete", int(delete_id))
+                sync_kanvas_to_sheets("delete", int(delete_id))
             except RuntimeError as error:
                 st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
             else:
-                deleted_count = int(res.get("deleted", 0))
-                deleted_rows = res.get("deleted_rows", [])
                 with _get_db_connection() as conn:
                     conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
                 _invalidate_data_caches()
                 st.session_state["admin_initial_restore_done"] = True
-                if deleted_count > 0:
+                try:
+                    auto_backup_kanvas_to_sheets()
                     st.session_state["notifikasi_sukses"] = (
-                        f"🗑️ Laporan ID #{delete_id} dihapus dari lokal & {deleted_count} row di Google Sheets "
-                        f"(baris: {deleted_rows})."
+                        f"🗑️ Laporan ID #{delete_id} berhasil dihapus & auto-backup ke Google Sheets selesai."
                     )
-                else:
+                except RuntimeError as backup_err:
                     st.session_state["notifikasi_error"] = (
-                        f"⚠️ ID #{delete_id} terhapus di lokal, tapi 0 row ditemukan/terhapus di Google Sheets. "
-                        f"Cek kolom 'id' di sheet DataKanvasAksara atau deployment Apps Script."
+                        f"⚠️ Laporan ID #{delete_id} terhapus di lokal, tetapi auto-backup ke Google Sheets gagal: {backup_err}"
                     )
                 st.rerun()
 
@@ -1836,15 +1871,13 @@ def admin_protected_data_actions(df, today):
     confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
     if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
         try:
-            res = (
+            if delete_scope == "Hari Ini":
                 sync_kanvas_to_sheets("delete_by_date", today)
-                if delete_scope == "Hari Ini"
-                else sync_kanvas_to_sheets("delete_all", None)
-            )
+            else:
+                sync_kanvas_to_sheets("delete_all", None)
         except RuntimeError as error:
             st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
         else:
-            deleted_count = int(res.get("deleted", 0))
             with _get_db_connection() as conn:
                 if delete_scope == "Hari Ini":
                     conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
@@ -1852,9 +1885,15 @@ def admin_protected_data_actions(df, today):
                     conn.execute("DELETE FROM kanvas")
             _invalidate_data_caches()
             st.session_state["admin_initial_restore_done"] = True
-            st.session_state["notifikasi_sukses"] = (
-                f"🗑️ Data ({delete_scope}) dihapus di lokal & Google Sheets (row terhapus: {deleted_count})."
-            )
+            try:
+                auto_backup_kanvas_to_sheets()
+                st.session_state["notifikasi_sukses"] = (
+                    f"🗑️ Data ({delete_scope}) berhasil dihapus & auto-backup ke Google Sheets selesai."
+                )
+            except RuntimeError as backup_err:
+                st.session_state["notifikasi_error"] = (
+                    f"⚠️ Data ({delete_scope}) terhapus di lokal, tetapi auto-backup ke Google Sheets gagal: {backup_err}"
+                )
             st.rerun()
 
 
@@ -1978,21 +2017,7 @@ def backup_restore_page(df):
     st.subheader("📤 Backup Data Lokal ke Google Sheets")
     st.write("Gunakan tombol di bawah ini untuk menimpa seluruh data di sheet **`DataKanvasAksara`** dengan data laporan kanvas lokal.")
     if st.button("🔄 Kirim/Backup Semua Data Kanvas ke Google Sheets", type="secondary"):
-        rows_payload = []
-        if not df.empty:
-            for _, row in df.iterrows():
-                item = {
-                    "id": int(row["ID"]),
-                    "tanggal": str(row["Tanggal"]),
-                    "nama_promotor": str(row["Nama Promotor"]),
-                    "zona": str(row["Zona"]),
-                    "brand": str(row["Brand"]),
-                }
-                for key, label in FIELD_LABELS.items():
-                    item[key] = int(row[label] or 0)
-                item["waktu_submit"] = str(row["Waktu Submit"])
-                rows_payload.append(item)
-
+        rows_payload = build_kanvas_backup_rows(df)
         payload = {
             "type": "kanvas_backup",
             "action": "replace_all",
