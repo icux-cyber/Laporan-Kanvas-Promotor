@@ -1012,7 +1012,7 @@ def survey_monitoring_page():
             hide_index=True,
         )
 
-        st.markdown("#### 🍩 Donut + Center KPI Penerimaan D.76 Aksara Berdasarkan BUMO")
+        st.markdown("Penerimaan D.76 Aksara Berdasarkan BUMO")
         status_counts = bumo_summary["Status Acceptable D.76 Aksara"].value_counts()
         status_color_map = {
             "Diterima": "#16a34a",
