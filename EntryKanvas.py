@@ -1,4 +1,4 @@
-uimport base64
+import base64
 from datetime import datetime
 from io import BytesIO
 import json
