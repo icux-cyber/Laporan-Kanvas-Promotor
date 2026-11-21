@@ -1183,6 +1183,7 @@ def survey_log_page(is_admin=False, locked_promoter=None):
                         with _get_db_connection() as conn:
                             conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
                         _invalidate_data_caches()
+                        st.session_state["admin_initial_restore_done"] = True
                         st.session_state["notifikasi_sukses"] = (
                             f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
                         )
@@ -1799,12 +1800,22 @@ def admin_protected_data_actions(df, today):
             except RuntimeError as error:
                 st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
             else:
+                deleted_count = int(res.get("deleted", 0))
+                deleted_rows = res.get("deleted_rows", [])
                 with _get_db_connection() as conn:
                     conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
                 _invalidate_data_caches()
-                st.session_state["notifikasi_sukses"] = (
-                    f"🗑️ Laporan ID #{delete_id} berhasil dihapus dari lokal & Google Sheets."
-                )
+                st.session_state["admin_initial_restore_done"] = True
+                if deleted_count > 0:
+                    st.session_state["notifikasi_sukses"] = (
+                        f"🗑️ Laporan ID #{delete_id} dihapus dari lokal & {deleted_count} row di Google Sheets "
+                        f"(baris: {deleted_rows})."
+                    )
+                else:
+                    st.session_state["notifikasi_error"] = (
+                        f"⚠️ ID #{delete_id} terhapus di lokal, tapi 0 row ditemukan/terhapus di Google Sheets. "
+                        f"Cek kolom 'id' di sheet DataKanvasAksara atau deployment Apps Script."
+                    )
                 st.rerun()
 
     st.markdown("#### 📥 Unduh Laporan")
@@ -1825,26 +1836,24 @@ def admin_protected_data_actions(df, today):
     confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
     if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
         try:
-            if delete_scope == "Hari Ini":
-                res = (
-                    sync_kanvas_to_sheets("delete_by_date", today)
-                    if delete_scope == "Hari Ini"
-                    else sync_kanvas_to_sheets("delete_all", None)
-                ) 
-                
-            else:
-                sync_kanvas_to_sheets("delete_all", None)
+            res = (
+                sync_kanvas_to_sheets("delete_by_date", today)
+                if delete_scope == "Hari Ini"
+                else sync_kanvas_to_sheets("delete_all", None)
+            )
         except RuntimeError as error:
             st.error(f"Penghapusan dibatalkan karena update Google Sheets gagal: {error}")
         else:
+            deleted_count = int(res.get("deleted", 0))
             with _get_db_connection() as conn:
                 if delete_scope == "Hari Ini":
                     conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
                 else:
                     conn.execute("DELETE FROM kanvas")
             _invalidate_data_caches()
+            st.session_state["admin_initial_restore_done"] = True
             st.session_state["notifikasi_sukses"] = (
-                f"🗑️ Data ({delete_scope}) berhasil dihapus dari lokal & Google Sheets."
+                f"🗑️ Data ({delete_scope}) dihapus di lokal & Google Sheets (row terhapus: {deleted_count})."
             )
             st.rerun()
 
