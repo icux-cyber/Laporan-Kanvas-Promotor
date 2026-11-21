@@ -3,7 +3,7 @@ from io import BytesIO
 import json
 import os
 import sqlite3
-
+import base64
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -132,48 +132,42 @@ h1, h2, h3, h4 {
     letter-spacing: -0.02em;
 }
 
-.login-banner-frame {
+.login-hero-combined {
     background: #09090b;
-    padding: 0.35rem;
-    border-radius: 14px 14px 0 0;
+    border-radius: 16px;
     border: 1px solid #27272a;
-    border-bottom: none;
+    box-shadow: 0 12px 26px -8px rgba(15, 23, 42, 0.32);
     overflow: hidden;
-    margin-bottom: 0;
+    margin-bottom: 0.75rem;
 }
 
-.login-banner-frame div[data-testid="stImage"] {
-    margin-bottom: 0 !important;
-}
-
-.login-banner-frame div[data-testid="stImage"] img {
-    border-radius: 11px;
+.login-hero-combined img {
+    width: 100%;
+    height: auto;
     display: block;
+    border-radius: 15px 15px 0 0;
 }
 
-.login-title-box {
+.login-title-strip {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #991b1b 100%);
-    padding: 1rem 1.35rem;
-    border-radius: 0 0 14px 14px;
+    padding: 0.8rem 1.2rem;
     color: #ffffff;
-    box-shadow: 0 10px 22px -8px rgba(15, 23, 42, 0.28);
-    margin-bottom: 0.85rem;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.login-title-box h2 {
+.login-title-strip h2 {
     color: #ffffff !important;
-    font-size: 1.3rem;
-    margin: 0 0 0.2rem 0;
+    font-size: 1.22rem;
+    margin: 0 0 0.15rem 0;
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1.2;
 }
 
-.login-title-box p {
+.login-title-strip p {
     color: #e2e8f0;
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     margin: 0;
-    line-height: 1.35;
+    line-height: 1.3;
 }
 
 .hero-header {
@@ -277,304 +271,29 @@ div[data-testid="stMetric"] {
 </style>
 """, unsafe_allow_html=True)
 
-
 @st.cache_data
-def load_bumo_options():
-    if not os.path.exists(BRAND_DATA_FILE):
-        return ["", "Lainnya"]
-    try:
-        with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
-            payload = json.load(file)
-    except (OSError, json.JSONDecodeError):
-        return ["", "Lainnya"]
-
-    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
-    unique_brands = [""]
-    seen = {""}
-    for item in raw_brands:
-        if isinstance(item, str):
-            cleaned = item.strip()
-            if cleaned and cleaned not in seen:
-                seen.add(cleaned)
-                unique_brands.append(cleaned)
-    if "Lainnya" not in seen:
-        unique_brands.append("Lainnya")
-    return unique_brands
-
-
-def init_db():
-    with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("""CREATE TABLE IF NOT EXISTS kanvas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, tanggal TEXT, nama_promotor TEXT,
-            zona TEXT, brand TEXT, canvas_plan INTEGER, outlet_beli_ada INTEGER,
-            outlet_ks_tb INTEGER, outlet_ks_b INTEGER, outlet_tb_ada_a INTEGER,
-            outlet_tb_ada_p INTEGER, outlet_tb_ks INTEGER, omset_bungkus INTEGER,
-            promsus_10_1 INTEGER DEFAULT 0, promsus_3_1 INTEGER DEFAULT 0,
-            promsus_2_1 INTEGER DEFAULT 0, promsus_1_1 INTEGER DEFAULT 0,
-            promsus_n_mie_instan INTEGER DEFAULT 0, outlet_buka_ecer INTEGER DEFAULT 0,
-            jumlah_rokok_sampling INTEGER DEFAULT 0, jumlah_konsumen_trial INTEGER DEFAULT 0,
-            direct_selling INTEGER DEFAULT 0, waktu_submit TEXT
-        )""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS survey_konsumen (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, waktu_survey TEXT NOT NULL,
-            nama_promotor TEXT NOT NULL, sektor_survey TEXT, nama_konsumen TEXT,
-            range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
-            bumo_rokok_konsumen TEXT, tahu_76_aksara TEXT, sumber_info_76_aksara TEXT,
-            bersedia_beli_warung TEXT, beralih_jangka_panjang TEXT,
-            komentar_positif TEXT, komentar_negatif TEXT
-        )""")
-        survey_columns = {row[1] for row in conn.execute("PRAGMA table_info(survey_konsumen)")}
-        for extra_col in ("tahu_76_aksara", "sumber_info_76_aksara", *SURVEY_EXTRA_FIELDS.values()):
-            if extra_col not in survey_columns:
-                conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {extra_col} TEXT")
-                survey_columns.add(extra_col)
-        legacy_comments = {
-            "komentar_positif_lainnya": "komentar_positif",
-            "komentar_negatif_lainnya": "komentar_negatif",
-        }
-        for column in SURVEY_FEEDBACK_FIELDS.values():
-            if column not in survey_columns:
-                conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {column} TEXT")
-                survey_columns.add(column)
-                legacy_column = legacy_comments.get(column)
-                if legacy_column and legacy_column in survey_columns:
-                    conn.execute(
-                        f"""UPDATE survey_konsumen SET {column} = {legacy_column}
-                        WHERE {legacy_column} IS NOT NULL AND TRIM({legacy_column}) != ''"""
-                    )
-        columns = {row[1] for row in conn.execute("PRAGMA table_info(kanvas)")}
-        if "pic" in columns and "nama_promotor" not in columns:
-            conn.execute("ALTER TABLE kanvas RENAME COLUMN pic TO nama_promotor")
-            columns.remove("pic")
-            columns.add("nama_promotor")
-        additions = {"nama_promotor": "TEXT", "zona": "TEXT"}
-        additions.update({name: "INTEGER DEFAULT 0" for name in FIELD_LABELS if name not in ("canvas_plan", "omset_bungkus")})
-        for name, kind in additions.items():
-            if name not in columns:
-                conn.execute(f"ALTER TABLE kanvas ADD COLUMN {name} {kind}")
-
-
-def _safe_int(value, default=0):
-    try:
-        if value is None or str(value).strip() == "":
-            return default
-        return int(float(value))
-    except (ValueError, TypeError):
-        return default
-
-
-def restore_from_google_sheets():
-    """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets dan menimpa database lokal."""
-    last_err = None
-    response = None
-    for _ in range(2):
-        try:
-            response = requests.get(
-                WEBHOOK_URL,
-                params={"action": "restore", "_ts": int(datetime.now(TZ_WIB).timestamp())},
-                timeout=60,
-            )
-            response.raise_for_status()
-            last_err = None
-            break
-        except requests.RequestException as err:
-            last_err = err
-
-    if last_err is not None or response is None:
-        return False, f"Gagal menghubungi Google Sheets: {last_err}"
-
-    raw_text = response.text or ""
-    try:
-        payload = response.json()
-    except ValueError:
-        return False, f"Respons bukan JSON (HTTP {response.status_code}): {raw_text[:250]}"
-
-    if not isinstance(payload, dict):
-        return False, f"Format JSON tidak berupa object: {raw_text[:250]}"
-
-    if payload.get("status") != "success":
-        msg = payload.get("message", "Gagal mengambil data dari Google Sheets.")
-        return False, f"{msg} | Payload: {str(payload)[:250]}"
-
-    if "kanvas" not in payload or "survey_konsumen" not in payload:
-        return False, f"Key 'kanvas'/'survey_konsumen' tidak ada. Key yang diterima: {list(payload.keys())}"
-
-    kanvas_rows = payload.get("kanvas") or []
-    survey_rows = payload.get("survey_konsumen") or []
-
-    kanvas_cols = ["id", "tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS.keys(), "waktu_submit"]
-    survey_cols = [
-        "id", "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
-        "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
-        "tahu_76_aksara", "sumber_info_76_aksara",
-        *SURVEY_EXTRA_FIELDS.values(),
-        *SURVEY_FEEDBACK_FIELDS.values(),
-    ]
-
-    with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("DELETE FROM kanvas")
-        conn.execute("DELETE FROM sqlite_sequence WHERE name='kanvas'")
-        for idx, row in enumerate(kanvas_rows, start=1):
-            if not isinstance(row, dict):
-                continue
-            if not str(row.get("tanggal", "")).strip() and not str(row.get("nama_promotor", "")).strip():
-                continue
-            row_id = _safe_int(row.get("id"), default=idx)
-            values = [
-                row_id,
-                str(row.get("tanggal", "")).strip(),
-                str(row.get("nama_promotor", "")).strip(),
-                str(row.get("zona", "")).strip(),
-                str(row.get("brand", "")).strip(),
-                *[_safe_int(row.get(k), 0) for k in FIELD_LABELS.keys()],
-                str(row.get("waktu_submit", "")).strip(),
-            ]
-            conn.execute(
-                f"INSERT OR REPLACE INTO kanvas ({', '.join(kanvas_cols)}) VALUES ({', '.join('?' for _ in kanvas_cols)})",
-                values,
-            )
-
-        conn.execute("DELETE FROM survey_konsumen")
-        conn.execute("DELETE FROM sqlite_sequence WHERE name='survey_konsumen'")
-        for idx, row in enumerate(survey_rows, start=1):
-            if not isinstance(row, dict):
-                continue
-            if not str(row.get("waktu_survey", "")).strip() and not str(row.get("nama_konsumen", "")).strip():
-                continue
-            row_id = _safe_int(row.get("id"), default=idx)
-            values = [
-                row_id,
-                str(row.get("waktu_survey", "")).strip(),
-                str(row.get("nama_promotor", "")).strip(),
-                str(row.get("sektor_survey", "")).strip(),
-                str(row.get("nama_konsumen", "")).strip(),
-                str(row.get("range_usia_konsumen", "")).strip(),
-                str(row.get("pekerjaan_konsumen", "")).strip(),
-                str(row.get("bumo_rokok_konsumen", "")).strip(),
-                str(row.get("tahu_76_aksara", "")).strip(),
-                str(row.get("sumber_info_76_aksara", "")).strip(),
-                *[str(row.get(col, "") or "").strip() for col in SURVEY_EXTRA_FIELDS.values()],
-                *[str(row.get(col, "") or "").strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
-            ]
-            conn.execute(
-                f"INSERT OR REPLACE INTO survey_konsumen ({', '.join(survey_cols)}) VALUES ({', '.join('?' for _ in survey_cols)})",
-                values,
-            )
-
-    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas & {len(survey_rows)} data survey."
-
-
-def load_data():
-    with sqlite3.connect(DB_NAME) as conn:
-        return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
-            nama_promotor AS [Nama Promotor], zona AS Zona, brand AS Brand,
-            canvas_plan AS [Canvas Plan], outlet_beli_ada AS [Outlet Beli Ada],
-            outlet_ks_tb AS [Outlet Ks Tb], outlet_ks_b AS [Outlet Ks B],
-            outlet_tb_ada_a AS [Outlet TB Ada A], outlet_tb_ada_p AS [Outlet TB Ada P],
-            outlet_tb_ks AS [Outlet TB Ks], omset_bungkus AS [Omset (Bungkus)],
-            promsus_10_1 AS [Promsus 10+1], promsus_3_1 AS [Promsus 3+1],
-            promsus_2_1 AS [Promsus 2+1], promsus_1_1 AS [Promsus 1+1],
-            promsus_n_mie_instan AS [N+ Mie Instan], outlet_buka_ecer AS [Outlet Buka Ecer],
-            jumlah_rokok_sampling AS [Jumlah Rokok Sampling],
-            jumlah_konsumen_trial AS [Jumlah Konsumen Trial],
-            direct_selling AS [Direct Selling], waktu_submit AS [Waktu Submit]
-            FROM kanvas ORDER BY waktu_submit DESC""", conn)
-
-
-def load_survey_data():
-    with sqlite3.connect(DB_NAME) as conn:
-        extra_columns = ", ".join(
-            f"{column} AS [{label}]" for label, column in SURVEY_EXTRA_FIELDS.items()
-        )
-        feedback_columns = ", ".join(
-            f"{column} AS [{label}]" for label, column in SURVEY_FEEDBACK_FIELDS.items()
-        )
-        return pd.read_sql_query(f"""SELECT id AS ID, waktu_survey AS [Waktu Survey],
-            nama_promotor AS [Nama Promotor], sektor_survey AS [Sektor Survey],
-            nama_konsumen AS [Nama Konsumen], range_usia_konsumen AS [Range Umur Konsumen],
-            pekerjaan_konsumen AS [Pekerjaan Konsumen],
-            bumo_rokok_konsumen AS [BUMO Rokok Konsumen],
-            tahu_76_aksara AS [Mengetahui Djarum 76 Aksara],
-            sumber_info_76_aksara AS [Sumber Info Djarum 76 Aksara],
-            {extra_columns},
-            {feedback_columns}
-            FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
-
-
-def save_report(data):
-    columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS, "waktu_submit"]
-    with sqlite3.connect(DB_NAME) as conn:
-        cursor = conn.execute(
-            f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
-            [data[key] for key in columns],
-        )
-        data_with_id = {"id": int(cursor.lastrowid), **data}
-    try:
-        requests.post(WEBHOOK_URL, json=data_with_id, timeout=15).raise_for_status()
-    except requests.RequestException:
-        pass
-
-
-def sync_survey_to_sheets(action, survey):
-    payload = {"type": "survey_konsumen", "action": action}
-    if action == "upsert":
-        payload.update(survey)
-    elif action == "delete":
-        payload["id"] = int(survey)
-    else:
-        raise ValueError(f"Aksi sinkronisasi survey tidak dikenal: {action}")
-
-    try:
-        capability_response = requests.get(WEBHOOK_URL, timeout=15)
-    except requests.RequestException as error:
-        raise RuntimeError("Tidak dapat memeriksa dukungan survey pada webhook Google Sheets.") from error
-    if not capability_response.ok:
-        raise RuntimeError(
-            f"Pemeriksaan webhook Google Sheets merespons HTTP {capability_response.status_code}."
-        )
-    try:
-        capability = capability_response.json()
-    except ValueError as error:
-        raise RuntimeError(
-            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
-        ) from error
-    if not isinstance(capability, dict) or capability.get("survey_sync_version") != 1:
-        raise RuntimeError(
-            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
-        )
-
-    try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=15)
-    except requests.RequestException as error:
-        raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
-    if not response.ok:
-        raise RuntimeError(f"Webhook Google Sheets merespons HTTP {response.status_code}.")
-    try:
-        result = response.json()
-    except ValueError as error:
-        raise RuntimeError("Respons webhook Google Sheets bukan JSON yang valid.") from error
-    if not isinstance(result, dict) or result.get("status") != "success":
-        message = result.get("message", "Permintaan survey ditolak.") if isinstance(result, dict) else "Respons webhook tidak valid."
-        raise RuntimeError(message)
-    if result.get("type") != "survey_konsumen" or result.get("action") != action:
-        raise RuntimeError("Respons webhook tidak mengonfirmasi sinkronisasi survey yang diminta.")
+def _get_banner_base64():
+    if not os.path.exists(BANNER_IMAGE_FILE):
+        return None
+    with open(BANNER_IMAGE_FILE, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode("utf-8")
 
 
 def login_page():
-    _, center_col, _ = st.columns([0.6, 2.8, 0.6])
+    _, center_col, _ = st.columns([0.5, 3.0, 0.5])
     with center_col:
-        if os.path.exists(BANNER_IMAGE_FILE):
-            st.markdown('<div class="login-banner-frame">', unsafe_allow_html=True)
-            st.image(BANNER_IMAGE_FILE, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            title_box_class = "login-title-box"
-        else:
-            title_box_class = "login-title-box"
-
+        banner_b64 = _get_banner_base64()
+        banner_html = (
+            f'<img src="data:image/png;base64,{banner_b64}" alt="Djarum 76 Aksara">'
+            if banner_b64 else ""
+        )
         st.markdown(f"""
-        <div class="{title_box_class}">
-            <h2>📋 Sistem Laporan Kanvas & Survey Konsumen</h2>
-            <p>Silakan masuk sebagai Promotor atau Admin untuk melanjutkan aktivitas lapangan.</p>
+        <div class="login-hero-combined">
+            {banner_html}
+            <div class="login-title-strip">
+                <h2>📋 Sistem Laporan Kanvas & Survey Konsumen</h2>
+                <p>Silakan masuk sebagai Promotor atau Admin untuk melanjutkan aktivitas lapangan.</p>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
