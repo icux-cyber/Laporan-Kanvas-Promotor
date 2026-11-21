@@ -134,47 +134,77 @@ h1, h2, h3, h4 {
 
 .login-banner-frame {
     background: #09090b;
-    padding: 0.55rem;
-    border-radius: 18px;
+    padding: 0.35rem;
+    border-radius: 14px 14px 0 0;
     border: 1px solid #27272a;
-    box-shadow: 0 14px 30px -8px rgba(15, 23, 42, 0.35);
-    margin-bottom: 1rem;
+    border-bottom: none;
     overflow: hidden;
+    margin-bottom: 0;
+}
+
+.login-banner-frame div[data-testid="stImage"] {
+    margin-bottom: 0 !important;
 }
 
 .login-banner-frame div[data-testid="stImage"] img {
-    border-radius: 13px;
+    border-radius: 11px;
+    display: block;
+}
+
+.login-title-box {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 65%, #991b1b 100%);
+    padding: 1rem 1.35rem;
+    border-radius: 0 0 14px 14px;
+    color: #ffffff;
+    box-shadow: 0 10px 22px -8px rgba(15, 23, 42, 0.28);
+    margin-bottom: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.login-title-box h2 {
+    color: #ffffff !important;
+    font-size: 1.3rem;
+    margin: 0 0 0.2rem 0;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.login-title-box p {
+    color: #e2e8f0;
+    font-size: 0.86rem;
+    margin: 0;
+    line-height: 1.35;
 }
 
 .hero-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #b91c1c 100%);
-    padding: 1.65rem 2rem;
-    border-radius: 18px;
+    padding: 1.35rem 1.75rem;
+    border-radius: 16px;
     color: #ffffff;
     box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.32);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .hero-header h1 {
     color: #ffffff !important;
-    font-size: 1.75rem;
-    margin: 0 0 0.35rem 0;
+    font-size: 1.65rem;
+    margin: 0 0 0.25rem 0;
     font-weight: 800;
 }
 .hero-header p {
     color: #cbd5e1;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     margin: 0;
 }
 .hero-badge {
     display: inline-block;
     background: rgba(255, 255, 255, 0.16);
     color: #fef08a;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    padding: 0.25rem 0.75rem;
+    padding: 0.2rem 0.65rem;
     border-radius: 999px;
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.5rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
@@ -218,14 +248,14 @@ h1, h2, h3, h4 {
     border-radius: 10px;
     font-weight: 600;
     width: 100%;
-    padding: 0.55rem 1rem;
+    padding: 0.5rem 0.95rem;
     transition: all 0.18s ease;
 }
 
 div[data-testid="stForm"] {
     background: #ffffff;
-    padding: 1.5rem;
-    border-radius: 16px;
+    padding: 1.15rem 1.35rem;
+    border-radius: 14px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
@@ -531,25 +561,27 @@ def sync_survey_to_sheets(action, survey):
 
 
 def login_page():
-    _, center_col, _ = st.columns([0.8, 2.6, 0.8])
+    _, center_col, _ = st.columns([0.6, 2.8, 0.6])
     with center_col:
         if os.path.exists(BANNER_IMAGE_FILE):
             st.markdown('<div class="login-banner-frame">', unsafe_allow_html=True)
             st.image(BANNER_IMAGE_FILE, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
+            title_box_class = "login-title-box"
+        else:
+            title_box_class = "login-title-box"
 
-        st.markdown("""
-        <div class="hero-header">
-            <div class="hero-badge">Djarum 76 Aksara • Field Operation Portal</div>
-            <h1>📋 Sistem Laporan Kanvas & Survey Konsumen</h1>
-            <p>Silakan masuk sebagai <strong>Promotor</strong> atau <strong>Admin</strong> untuk melanjutkan aktivitas lapangan.</p>
+        st.markdown(f"""
+        <div class="{title_box_class}">
+            <h2>📋 Sistem Laporan Kanvas & Survey Konsumen</h2>
+            <p>Silakan masuk sebagai Promotor atau Admin untuk melanjutkan aktivitas lapangan.</p>
         </div>
         """, unsafe_allow_html=True)
 
         tab_promotor, tab_admin = st.tabs(["🧑‍💼 Login Promotor", "🔐 Login Admin"])
 
         with tab_promotor:
-            st.markdown("#### Masuk Sebagai Promotor")
+            st.markdown("**Masuk Sebagai Promotor**")
             st.caption("Pilih nama Anda terlebih dahulu, lalu tentukan menu kerja yang ingin dibuka.")
 
             promoter_list = ["-- Pilih Nama Promotor --"] + list(PROMOTOR_ZONA.keys())
@@ -565,7 +597,7 @@ def login_page():
                 zona_promotor = PROMOTOR_ZONA[selected_promotor]
                 st.info(f"📍 Zona Tugas: **{zona_promotor}**")
             else:
-                st.warning("Pilih nama promotor Anda terlebih dahulu untuk membuka pilihan menu.")
+                st.caption("Pilih nama promotor terlebih dahulu untuk mengaktifkan pilihan menu.")
 
             selected_module = st.radio(
                 "Pilih Menu Tujuan:",
@@ -592,8 +624,8 @@ def login_page():
                 st.rerun()
 
         with tab_admin:
-            st.markdown("#### Masuk Sebagai Admin")
-            st.caption("Masukkan password admin untuk mengakses penuh seluruh modul Laporan Kanvas & Survey Konsumen.")
+            st.markdown("**Masuk Sebagai Admin**")
+            st.caption("Masukkan password admin untuk mengakses seluruh modul Laporan Kanvas & Survey Konsumen.")
 
             with st.form("form_login_admin_portal"):
                 admin_pwd = st.text_input("Password Admin", type="password", placeholder="Masukkan password...")
