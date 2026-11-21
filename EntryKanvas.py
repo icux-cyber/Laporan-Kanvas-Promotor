@@ -324,75 +324,52 @@ def _get_banner_base64():
         return base64.b64encode(img_file.read()).decode("utf-8")
 
 
-FALLBACK_BUMO_BRANDS = [
-    "Djarum 76 Aksara",
-    "Djarum Super",
-    "Djarum Black",
-    "Djarum 76",
-    "Gudang Garam Surya",
-    "Gudang Garam Filter",
-    "Sampoerna A Mild",
-    "Sampoerna Kretek",
-    "Marlboro",
-    "Class Mild",
-    "LA Lights",
-]
-
-
-def _extract_brand_strings(node, collector, seen):
-    if isinstance(node, str):
-        cleaned = node.strip()
-        if cleaned and cleaned not in seen:
-            seen.add(cleaned)
-            collector.append(cleaned)
-    elif isinstance(node, list):
-        for item in node:
-            _extract_brand_strings(item, collector, seen)
-    elif isinstance(node, dict):
-        # Prioritaskan key yang umum dipakai untuk daftar merek
-        preferred_keys = [
-            "daftar_merk_rokok",
-            "merk_rokok",
-            "brands",
-            "merk",
-            "data",
-            "pabrikan",
-        ]
-        handled_keys = set()
-        for key in preferred_keys:
-            if key in node:
-                _extract_brand_strings(node[key], collector, seen)
-                handled_keys.add(key)
-        for key, value in node.items():
-            if key not in handled_keys:
-                _extract_brand_strings(value, collector, seen)
+def _resolve_brand_file_path():
+    candidate_paths = [
+        BRAND_DATA_FILE,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), BRAND_DATA_FILE),
+    ]
+    for path in candidate_paths:
+        if path and os.path.exists(path):
+            return path
+    return None
 
 
 @st.cache_data(show_spinner=False)
-def load_bumo_options():
-    brands = []
+def _read_brands_from_json(resolved_path, _file_mtime):
+    with open(resolved_path, "r", encoding="utf-8") as file:
+        payload = json.load(file)
+
+    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
+    cleaned_brands = []
     seen = set()
+    for item in raw_brands:
+        if isinstance(item, str):
+            name = item.strip()
+            if name and name not in seen:
+                seen.add(name)
+                cleaned_brands.append(name)
+    return cleaned_brands
 
-    if os.path.exists(BRAND_DATA_FILE):
+
+def load_bumo_options():
+    resolved_path = _resolve_brand_file_path()
+    brands = []
+
+    if resolved_path:
         try:
-            with open(BRAND_DATA_FILE, "r", encoding="utf-8") as file:
-                payload = json.load(file)
-            _extract_brand_strings(payload, brands, seen)
+            mtime = os.path.getmtime(resolved_path)
+            brands = _read_brands_from_json(resolved_path, mtime)
         except (OSError, json.JSONDecodeError):
-            pass
+            brands = []
 
-    # Jika file kosong / gagal dibaca, gunakan fallback agar selectbox tidak kosong
     if not brands:
-        for item in FALLBACK_BUMO_BRANDS:
-            if item not in seen:
-                seen.add(item)
-                brands.append(item)
+        brands = list(FALLBACK_BUMO_BRANDS)
 
-    if "Lainnya" not in seen:
+    if "Lainnya" not in brands:
         brands.append("Lainnya")
 
     return [""] + brands
-
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
