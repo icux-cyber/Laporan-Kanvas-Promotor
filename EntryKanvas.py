@@ -352,6 +352,49 @@ def _read_brands_from_json(resolved_path, _file_mtime):
     return cleaned_brands
 
 
+FALLBACK_BUMO_BRANDS = [
+    "Djarum 76 Aksara",
+    "Djarum Super",
+    "Djarum Black",
+    "Djarum 76",
+    "Gudang Garam Surya",
+    "Gudang Garam Filter",
+    "Sampoerna A Mild",
+    "Sampoerna Kretek",
+    "Marlboro",
+    "Class Mild",
+    "LA Lights",
+]
+
+
+def _resolve_brand_file_path():
+    candidate_paths = [
+        BRAND_DATA_FILE,
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), BRAND_DATA_FILE),
+    ]
+    for path in candidate_paths:
+        if path and os.path.exists(path):
+            return path
+    return None
+
+
+@st.cache_data(show_spinner=False)
+def _read_brands_from_json(resolved_path, _file_mtime):
+    with open(resolved_path, "r", encoding="utf-8") as file:
+        payload = json.load(file)
+
+    raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
+    cleaned_brands = []
+    seen = set()
+    for item in raw_brands:
+        if isinstance(item, str):
+            name = item.strip()
+            if name and name not in seen:
+                seen.add(name)
+                cleaned_brands.append(name)
+    return cleaned_brands
+
+
 def load_bumo_options():
     resolved_path = _resolve_brand_file_path()
     brands = []
