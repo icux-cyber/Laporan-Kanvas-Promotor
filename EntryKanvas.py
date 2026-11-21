@@ -1,4 +1,4 @@
-import base64
+uimport base64
 from datetime import datetime
 from io import BytesIO
 import json
@@ -352,35 +352,22 @@ def _read_brands_from_json(resolved_path, _file_mtime):
     return cleaned_brands
 
 
-FALLBACK_BUMO_BRANDS = [
-    "Djarum 76 Aksara",
-    "Djarum Super",
-    "Djarum Black",
-    "Djarum 76",
-    "Gudang Garam Surya",
-    "Gudang Garam Filter",
-    "Sampoerna A Mild",
-    "Sampoerna Kretek",
-    "Marlboro",
-    "Class Mild",
-    "LA Lights",
-]
-
-
 def _resolve_brand_file_path():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     candidate_paths = [
+        os.path.join(base_dir, BRAND_DATA_FILE),
         BRAND_DATA_FILE,
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), BRAND_DATA_FILE),
+        os.path.join(os.getcwd(), BRAND_DATA_FILE),
     ]
     for path in candidate_paths:
-        if path and os.path.exists(path):
-            return path
+        if path and os.path.isfile(path):
+            return os.path.abspath(path)
     return None
 
 
 @st.cache_data(show_spinner=False)
 def _read_brands_from_json(resolved_path, _file_mtime):
-    with open(resolved_path, "r", encoding="utf-8") as file:
+    with open(resolved_path, "r", encoding="utf-8-sig") as file:
         payload = json.load(file)
 
     raw_brands = payload.get("daftar_merk_rokok", []) if isinstance(payload, dict) else []
@@ -395,15 +382,19 @@ def _read_brands_from_json(resolved_path, _file_mtime):
     return cleaned_brands
 
 
-def load_bumo_options():
+def load_bumo_options(with_meta=False):
     resolved_path = _resolve_brand_file_path()
     brands = []
+    source_info = "fallback"
 
     if resolved_path:
         try:
             mtime = os.path.getmtime(resolved_path)
             brands = _read_brands_from_json(resolved_path, mtime)
-        except (OSError, json.JSONDecodeError):
+            if brands:
+                source_info = f"json ({len(brands)} merk)"
+        except Exception as err:
+            source_info = f"error ({err})"
             brands = []
 
     if not brands:
@@ -412,7 +403,10 @@ def load_bumo_options():
     if "Lainnya" not in brands:
         brands.append("Lainnya")
 
-    return [""] + brands
+    options = [""] + brands
+    if with_meta:
+        return options, source_info, resolved_path
+    return options
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
