@@ -6,6 +6,7 @@ import os
 import sqlite3
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
@@ -16,7 +17,6 @@ import pytz
 import requests
 import streamlit as st
 
-
 TZ_WIB = pytz.timezone("Asia/Jakarta")
 DB_NAME = "laporan_kanvas.db"
 BRAND_DATA_FILE = "Merk_Rokok_All_Pabrikan_&_Nama_Karyawan.json"
@@ -25,23 +25,40 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyRAigBCyzy2RZYD0FgeMc5Pa
 ADMIN_PASSWORD = "admin123"
 
 PROMOTOR_ZONA = {
-    "Achmad Danu Ardi": "Bubutan", "Arik Wibisono": "Bubutan",
-    "Arum Ganda Fajar Ria": "Bubutan", "Candra Budi Eka": "Bubutan",
-    "Rofi Wijayanto": "Bubutan", "Angga Budi Setiawan": "Gresik Selatan",
-    "Dhimas Prayoga": "Gresik Selatan", "Hendra": "Gresik Selatan",
-    "Rusdianto": "Gresik Selatan", "Septian Chandra": "Gresik Selatan",
-    "Surya Hadi Pratama": "Gresik Selatan", "Alfianto Nur Huda": "Gresik Selatan",
-    "Heru Setiawan": "Gresik Selatan", "Pisga Andriyanto": "Gresik Selatan",
-    "Muhammad Rizky Pratama Putra": "Gresik Selatan", "Aldi Dwi Prasetyo": "Gresik Utara",
-    "Budi Setyawan": "Gresik Utara", "Dwi Nor Fais": "Gresik Utara",
-    "Khoirur Rijal": "Gresik Utara", "Lurico Umar Raffsanjani": "Gresik Utara",
-    "Rahmad Dani": "Gresik Utara", "M Holidi": "Gresik Utara",
-    "Daniel Arief Kurniawan": "Karangpilang", "Dimas Rizky Dermawan": "Karangpilang",
-    "Guntur Vicki Prasetyo": "Karangpilang", "Zayd Abigail Johansyah": "Karangpilang",
-    "Axel Setiawan": "Sawahan", "Delpiero Kevin Santoso": "Sawahan",
-    "Muhamad Baharudin Yusuf": "Sawahan", "Muhammad Luthfi Anshori": "Sawahan",
-    "Rendi Wahyudi": "Sawahan", "Arik Setiawan": "Tandes",
-    "Syarif Usman Fadholi": "Tandes", "Surya Wisnu Wibisono": "Tandes",
+    "Achmad Danu Ardi": "Bubutan",
+    "Arik Wibisono": "Bubutan",
+    "Arum Ganda Fajar Ria": "Bubutan",
+    "Candra Budi Eka": "Bubutan",
+    "Rofi Wijayanto": "Bubutan",
+    "Angga Budi Setiawan": "Gresik Selatan",
+    "Dhimas Prayoga": "Gresik Selatan",
+    "Hendra": "Gresik Selatan",
+    "Rusdianto": "Gresik Selatan",
+    "Septian Chandra": "Gresik Selatan",
+    "Surya Hadi Pratama": "Gresik Selatan",
+    "Alfianto Nur Huda": "Gresik Selatan",
+    "Heru Setiawan": "Gresik Selatan",
+    "Pisga Andriyanto": "Gresik Selatan",
+    "Muhammad Rizky Pratama Putra": "Gresik Selatan",
+    "Aldi Dwi Prasetyo": "Gresik Utara",
+    "Budi Setyawan": "Gresik Utara",
+    "Dwi Nor Fais": "Gresik Utara",
+    "Khoirur Rijal": "Gresik Utara",
+    "Lurico Umar Raffsanjani": "Gresik Utara",
+    "Rahmad Dani": "Gresik Utara",
+    "M Holidi": "Gresik Utara",
+    "Daniel Arief Kurniawan": "Karangpilang",
+    "Dimas Rizky Dermawan": "Karangpilang",
+    "Guntur Vicki Prasetyo": "Karangpilang",
+    "Zayd Abigail Johansyah": "Karangpilang",
+    "Axel Setiawan": "Sawahan",
+    "Delpiero Kevin Santoso": "Sawahan",
+    "Muhamad Baharudin Yusuf": "Sawahan",
+    "Muhammad Luthfi Anshori": "Sawahan",
+    "Rendi Wahyudi": "Sawahan",
+    "Arik Setiawan": "Tandes",
+    "Syarif Usman Fadholi": "Tandes",
+    "Surya Wisnu Wibisono": "Tandes",
     "Eko Sucipto": "Tandes",
     "Indra Fredi Wibowo": "Tandes",
 }
@@ -67,13 +84,23 @@ FIELD_LABELS = {
 }
 
 OUTLET_KEYS = [
-    "outlet_beli_ada", "outlet_ks_tb", "outlet_ks_b",
-    "outlet_tb_ada_a", "outlet_tb_ada_p", "outlet_tb_ks",
+    "outlet_beli_ada",
+    "outlet_ks_tb",
+    "outlet_ks_b",
+    "outlet_tb_ada_a",
+    "outlet_tb_ada_p",
+    "outlet_tb_ks",
 ]
 PROMOTION_KEYS = [
-    "promsus_10_1", "promsus_3_1", "promsus_2_1", "promsus_1_1",
-    "promsus_n_mie_instan", "outlet_buka_ecer", "jumlah_rokok_sampling",
-    "jumlah_konsumen_trial", "direct_selling",
+    "promsus_10_1",
+    "promsus_3_1",
+    "promsus_2_1",
+    "promsus_1_1",
+    "promsus_n_mie_instan",
+    "outlet_buka_ecer",
+    "jumlah_rokok_sampling",
+    "jumlah_konsumen_trial",
+    "direct_selling",
 ]
 SURVEY_AGE_RANGES = ["18-24 Tahun", "25-30 Tahun", "31-34 Tahun", "35-40 Tahun", "40+ Tahun"]
 SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
@@ -107,6 +134,30 @@ SURVEY_FEEDBACK_FIELDS = {
     "Komentar Negatif - Kemasan": "komentar_negatif_kemasan",
     "Komentar Negatif - Lainnya": "komentar_negatif_lainnya",
 }
+
+KANVAS_COLS = [
+    "id",
+    "tanggal",
+    "nama_promotor",
+    "zona",
+    "brand",
+    *FIELD_LABELS.keys(),
+    "waktu_submit",
+]
+SURVEY_COLS = [
+    "id",
+    "waktu_survey",
+    "nama_promotor",
+    "sektor_survey",
+    "nama_konsumen",
+    "range_usia_konsumen",
+    "pekerjaan_konsumen",
+    "bumo_rokok_konsumen",
+    "tahu_76_aksara",
+    "sumber_info_76_aksara",
+    *SURVEY_EXTRA_FIELDS.values(),
+    *SURVEY_FEEDBACK_FIELDS.values(),
+]
 
 st.set_page_config(
     page_title="Sistem Kanvas & Survey — Djarum 76 Aksara",
@@ -150,12 +201,7 @@ h1, h2, h3, h4 {
 }
 
 .login-title-strip {
-    background: linear-gradient(
-        95deg,
-        #09090b 0%,
-        #141417 52%,
-        #231c10 100%
-    );
+    background: linear-gradient(95deg, #09090b 0%, #141417 52%, #231c10 100%);
     padding: 0.8rem 1.2rem;
     color: #f8fafc;
     border-top: 1px solid rgba(212, 175, 55, 0.34);
@@ -315,7 +361,27 @@ div[data-testid="stMetric"] {
 """, unsafe_allow_html=True)
 
 
-@st.cache_data
+def _get_db_connection():
+    conn = sqlite3.connect(DB_NAME, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    return conn
+
+
+def _invalidate_data_caches():
+    st.cache_data.clear()
+
+
+def _safe_int(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(float(value))
+    except (ValueError, TypeError):
+        return default
+
+
+@st.cache_data(show_spinner=False)
 def _get_banner_base64():
     if not os.path.exists(BANNER_IMAGE_FILE):
         return None
@@ -335,14 +401,11 @@ FALLBACK_BUMO_BRANDS = [
 
 
 def _resolve_brand_data_path():
-    """Mencari file JSON daftar merek rokok di direktori kerja saat ini maupun direktori script."""
     if os.path.exists(BRAND_DATA_FILE):
         return BRAND_DATA_FILE
     script_dir = os.path.dirname(os.path.abspath(__file__))
     candidate = os.path.join(script_dir, BRAND_DATA_FILE)
-    if os.path.exists(candidate):
-        return candidate
-    return None
+    return candidate if os.path.exists(candidate) else None
 
 
 def _collect_brand_names(raw_brands):
@@ -361,7 +424,6 @@ def _collect_brand_names(raw_brands):
 
 @st.cache_data(show_spinner=False)
 def load_bumo_options():
-    """Memuat daftar merek rokok BUMO dari file JSON."""
     brands = []
     loaded_from_json = False
     json_path = _resolve_brand_data_path()
@@ -388,15 +450,16 @@ def load_bumo_options():
     if not brands:
         brands = list(FALLBACK_BUMO_BRANDS)
 
-    seen = set(brands)
-    if "Lainnya" not in seen:
+    if "Lainnya" not in brands:
         brands.append("Lainnya")
 
-    return [""] + brands, loaded_from_json, len(brands) - (1 if "Lainnya" in brands else 0)
+    brand_total = len(brands) - (1 if "Lainnya" in brands else 0)
+    return [""] + brands, loaded_from_json, brand_total
 
 
+@st.cache_resource(show_spinner=False)
 def init_db():
-    with sqlite3.connect(DB_NAME) as conn:
+    with _get_db_connection() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS kanvas (
             id INTEGER PRIMARY KEY AUTOINCREMENT, tanggal TEXT, nama_promotor TEXT,
             zona TEXT, brand TEXT, canvas_plan INTEGER, outlet_beli_ada INTEGER,
@@ -416,11 +479,13 @@ def init_db():
             bersedia_beli_warung TEXT, beralih_jangka_panjang TEXT,
             komentar_positif TEXT, komentar_negatif TEXT
         )""")
+
         survey_columns = {row[1] for row in conn.execute("PRAGMA table_info(survey_konsumen)")}
         for extra_col in ("tahu_76_aksara", "sumber_info_76_aksara", *SURVEY_EXTRA_FIELDS.values()):
             if extra_col not in survey_columns:
                 conn.execute(f"ALTER TABLE survey_konsumen ADD COLUMN {extra_col} TEXT")
                 survey_columns.add(extra_col)
+
         legacy_comments = {
             "komentar_positif_lainnya": "komentar_positif",
             "komentar_negatif_lainnya": "komentar_negatif",
@@ -435,29 +500,32 @@ def init_db():
                         f"""UPDATE survey_konsumen SET {column} = {legacy_column}
                         WHERE {legacy_column} IS NOT NULL AND TRIM({legacy_column}) != ''"""
                     )
+
         columns = {row[1] for row in conn.execute("PRAGMA table_info(kanvas)")}
         if "pic" in columns and "nama_promotor" not in columns:
             conn.execute("ALTER TABLE kanvas RENAME COLUMN pic TO nama_promotor")
             columns.remove("pic")
             columns.add("nama_promotor")
+
         additions = {"nama_promotor": "TEXT", "zona": "TEXT"}
-        additions.update({name: "INTEGER DEFAULT 0" for name in FIELD_LABELS if name not in ("canvas_plan", "omset_bungkus")})
+        additions.update({
+            name: "INTEGER DEFAULT 0"
+            for name in FIELD_LABELS
+            if name not in ("canvas_plan", "omset_bungkus")
+        })
         for name, kind in additions.items():
             if name not in columns:
                 conn.execute(f"ALTER TABLE kanvas ADD COLUMN {name} {kind}")
 
-
-def _safe_int(value, default=0):
-    try:
-        if value is None or str(value).strip() == "":
-            return default
-        return int(float(value))
-    except (ValueError, TypeError):
-        return default
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_kanvas_tanggal ON kanvas(tanggal)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_kanvas_promotor ON kanvas(nama_promotor)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_survey_waktu ON survey_konsumen(waktu_survey)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_survey_promotor ON survey_konsumen(nama_promotor)")
+    return True
 
 
 def restore_from_google_sheets():
-    """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets dan menimpa database lokal."""
+    """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets ke SQLite."""
     last_err = None
     response = None
     for _ in range(2):
@@ -465,7 +533,7 @@ def restore_from_google_sheets():
             response = requests.get(
                 WEBHOOK_URL,
                 params={"action": "restore", "_ts": int(datetime.now(TZ_WIB).timestamp())},
-                timeout=60,
+                timeout=30,
             )
             response.raise_for_status()
             last_err = None
@@ -495,70 +563,73 @@ def restore_from_google_sheets():
     kanvas_rows = payload.get("kanvas") or []
     survey_rows = payload.get("survey_konsumen") or []
 
-    kanvas_cols = ["id", "tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS.keys(), "waktu_submit"]
-    survey_cols = [
-        "id", "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
-        "range_usia_konsumen", "pekerjaan_konsumen", "bumo_rokok_konsumen",
-        "tahu_76_aksara", "sumber_info_76_aksara",
-        *SURVEY_EXTRA_FIELDS.values(),
-        *SURVEY_FEEDBACK_FIELDS.values(),
-    ]
+    kanvas_batch = []
+    for idx, row in enumerate(kanvas_rows, start=1):
+        if not isinstance(row, dict):
+            continue
+        if not str(row.get("tanggal", "")).strip() and not str(row.get("nama_promotor", "")).strip():
+            continue
+        kanvas_batch.append((
+            _safe_int(row.get("id"), default=idx),
+            str(row.get("tanggal", "")).strip(),
+            str(row.get("nama_promotor", "")).strip(),
+            str(row.get("zona", "")).strip(),
+            str(row.get("brand", "")).strip(),
+            *[_safe_int(row.get(k), 0) for k in FIELD_LABELS.keys()],
+            str(row.get("waktu_submit", "")).strip(),
+        ))
 
-    with sqlite3.connect(DB_NAME) as conn:
+    survey_batch = []
+    for idx, row in enumerate(survey_rows, start=1):
+        if not isinstance(row, dict):
+            continue
+        if not str(row.get("waktu_survey", "")).strip() and not str(row.get("nama_konsumen", "")).strip():
+            continue
+        survey_batch.append((
+            _safe_int(row.get("id"), default=idx),
+            str(row.get("waktu_survey", "")).strip(),
+            str(row.get("nama_promotor", "")).strip(),
+            str(row.get("sektor_survey", "")).strip(),
+            str(row.get("nama_konsumen", "")).strip(),
+            str(row.get("range_usia_konsumen", "")).strip(),
+            str(row.get("pekerjaan_konsumen", "")).strip(),
+            str(row.get("bumo_rokok_konsumen", "")).strip(),
+            str(row.get("tahu_76_aksara", "")).strip(),
+            str(row.get("sumber_info_76_aksara", "")).strip(),
+            *[str(row.get(col, "") or "").strip() for col in SURVEY_EXTRA_FIELDS.values()],
+            *[str(row.get(col, "") or "").strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
+        ))
+
+    with _get_db_connection() as conn:
         conn.execute("DELETE FROM kanvas")
         conn.execute("DELETE FROM sqlite_sequence WHERE name='kanvas'")
-        for idx, row in enumerate(kanvas_rows, start=1):
-            if not isinstance(row, dict):
-                continue
-            if not str(row.get("tanggal", "")).strip() and not str(row.get("nama_promotor", "")).strip():
-                continue
-            row_id = _safe_int(row.get("id"), default=idx)
-            values = [
-                row_id,
-                str(row.get("tanggal", "")).strip(),
-                str(row.get("nama_promotor", "")).strip(),
-                str(row.get("zona", "")).strip(),
-                str(row.get("brand", "")).strip(),
-                *[_safe_int(row.get(k), 0) for k in FIELD_LABELS.keys()],
-                str(row.get("waktu_submit", "")).strip(),
-            ]
-            conn.execute(
-                f"INSERT OR REPLACE INTO kanvas ({', '.join(kanvas_cols)}) VALUES ({', '.join('?' for _ in kanvas_cols)})",
-                values,
+        if kanvas_batch:
+            conn.executemany(
+                f"INSERT OR REPLACE INTO kanvas ({', '.join(KANVAS_COLS)}) "
+                f"VALUES ({', '.join('?' for _ in KANVAS_COLS)})",
+                kanvas_batch,
             )
 
         conn.execute("DELETE FROM survey_konsumen")
         conn.execute("DELETE FROM sqlite_sequence WHERE name='survey_konsumen'")
-        for idx, row in enumerate(survey_rows, start=1):
-            if not isinstance(row, dict):
-                continue
-            if not str(row.get("waktu_survey", "")).strip() and not str(row.get("nama_konsumen", "")).strip():
-                continue
-            row_id = _safe_int(row.get("id"), default=idx)
-            values = [
-                row_id,
-                str(row.get("waktu_survey", "")).strip(),
-                str(row.get("nama_promotor", "")).strip(),
-                str(row.get("sektor_survey", "")).strip(),
-                str(row.get("nama_konsumen", "")).strip(),
-                str(row.get("range_usia_konsumen", "")).strip(),
-                str(row.get("pekerjaan_konsumen", "")).strip(),
-                str(row.get("bumo_rokok_konsumen", "")).strip(),
-                str(row.get("tahu_76_aksara", "")).strip(),
-                str(row.get("sumber_info_76_aksara", "")).strip(),
-                *[str(row.get(col, "") or "").strip() for col in SURVEY_EXTRA_FIELDS.values()],
-                *[str(row.get(col, "") or "").strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
-            ]
-            conn.execute(
-                f"INSERT OR REPLACE INTO survey_konsumen ({', '.join(survey_cols)}) VALUES ({', '.join('?' for _ in survey_cols)})",
-                values,
+        if survey_batch:
+            conn.executemany(
+                f"INSERT OR REPLACE INTO survey_konsumen ({', '.join(SURVEY_COLS)}) "
+                f"VALUES ({', '.join('?' for _ in SURVEY_COLS)})",
+                survey_batch,
             )
 
-    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas & {len(survey_rows)} data survey."
+    _invalidate_data_caches()
+    return True, f"Berhasil restore {len(kanvas_batch)} data kanvas & {len(survey_batch)} data survey."
 
 
-def load_data():
-    with sqlite3.connect(DB_NAME) as conn:
+def _get_db_mtime():
+    return os.path.getmtime(DB_NAME) if os.path.exists(DB_NAME) else 0.0
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _load_kanvas_cached(_mtime):
+    with _get_db_connection() as conn:
         return pd.read_sql_query("""SELECT id AS ID, tanggal AS Tanggal,
             nama_promotor AS [Nama Promotor], zona AS Zona, brand AS Brand,
             canvas_plan AS [Canvas Plan], outlet_beli_ada AS [Outlet Beli Ada],
@@ -574,8 +645,13 @@ def load_data():
             FROM kanvas ORDER BY waktu_submit DESC""", conn)
 
 
-def load_survey_data():
-    with sqlite3.connect(DB_NAME) as conn:
+def load_data():
+    return _load_kanvas_cached(_get_db_mtime())
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _load_survey_cached(_mtime):
+    with _get_db_connection() as conn:
         extra_columns = ", ".join(
             f"{column} AS [{label}]" for label, column in SURVEY_EXTRA_FIELDS.items()
         )
@@ -594,16 +670,21 @@ def load_survey_data():
             FROM survey_konsumen ORDER BY waktu_survey DESC""", conn)
 
 
+def load_survey_data():
+    return _load_survey_cached(_get_db_mtime())
+
+
 def save_report(data):
     columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS, "waktu_submit"]
-    with sqlite3.connect(DB_NAME) as conn:
+    with _get_db_connection() as conn:
         cursor = conn.execute(
             f"INSERT INTO kanvas ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
             [data[key] for key in columns],
         )
         data_with_id = {"id": int(cursor.lastrowid), **data}
+    _invalidate_data_caches()
     try:
-        requests.post(WEBHOOK_URL, json=data_with_id, timeout=15).raise_for_status()
+        requests.post(WEBHOOK_URL, json=data_with_id, timeout=12).raise_for_status()
     except requests.RequestException:
         pass
 
@@ -618,26 +699,7 @@ def sync_survey_to_sheets(action, survey):
         raise ValueError(f"Aksi sinkronisasi survey tidak dikenal: {action}")
 
     try:
-        capability_response = requests.get(WEBHOOK_URL, timeout=15)
-    except requests.RequestException as error:
-        raise RuntimeError("Tidak dapat memeriksa dukungan survey pada webhook Google Sheets.") from error
-    if not capability_response.ok:
-        raise RuntimeError(
-            f"Pemeriksaan webhook Google Sheets merespons HTTP {capability_response.status_code}."
-        )
-    try:
-        capability = capability_response.json()
-    except ValueError as error:
-        raise RuntimeError(
-            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
-        ) from error
-    if not isinstance(capability, dict) or capability.get("survey_sync_version") != 1:
-        raise RuntimeError(
-            "Webhook belum mendukung sinkronisasi survey. Deploy GoogleAppsScript.gs terlebih dahulu."
-        )
-
-    try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=15)
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=12)
     except requests.RequestException as error:
         raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
     if not response.ok:
@@ -778,10 +840,14 @@ def report_form(locked_promoter=None):
 
     if preview or submit:
         report = {
-            "tanggal": date_value.strftime("%Y-%m-%d"), "nama_promotor": promoter,
-            "zona": PROMOTOR_ZONA[promoter], "brand": brand,
-            "canvas_plan": int(canvas_plan), "omset_bungkus": int(omset),
-            **outlet_values, **promotion_values,
+            "tanggal": date_value.strftime("%Y-%m-%d"),
+            "nama_promotor": promoter,
+            "zona": PROMOTOR_ZONA[promoter],
+            "brand": brand,
+            "canvas_plan": int(canvas_plan),
+            "omset_bungkus": int(omset),
+            **outlet_values,
+            **promotion_values,
             "waktu_submit": datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"),
         }
         if preview:
@@ -1021,7 +1087,7 @@ def consumer_survey_entry_page(locked_promoter=None):
             bersedia_beli_warung, beralih_jangka_panjang,
             *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
         ]
-        with sqlite3.connect(DB_NAME) as conn:
+        with _get_db_connection() as conn:
             cursor = conn.execute(
                 f"INSERT INTO survey_konsumen ({', '.join(columns)}) "
                 f"VALUES ({', '.join('?' for _ in columns)})",
@@ -1029,6 +1095,7 @@ def consumer_survey_entry_page(locked_promoter=None):
             )
             survey_record = dict(zip(columns, values))
             survey_record["id"] = int(cursor.lastrowid)
+        _invalidate_data_caches()
         try:
             sync_survey_to_sheets("upsert", survey_record)
         except RuntimeError as error:
@@ -1082,8 +1149,9 @@ def survey_log_page(is_admin=False, locked_promoter=None):
                     except RuntimeError as error:
                         st.error(f"Penghapusan dibatalkan karena backup Google Sheets gagal: {error}")
                     else:
-                        with sqlite3.connect(DB_NAME) as conn:
+                        with _get_db_connection() as conn:
                             conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
+                        _invalidate_data_caches()
                         st.session_state["notifikasi_sukses"] = (
                             f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
                         )
@@ -1254,9 +1322,11 @@ def _render_rounded_bar_highlight(aspects, positive_counts, negative_counts):
     totals = pos_arr + neg_arr
 
     highlight_idx = int(np.argmax(totals)) if len(totals) > 0 and np.max(totals) > 0 else None
-    max_val = max(float(np.max(pos_arr)) if len(pos_arr) else 0.0,
-                  float(np.max(neg_arr)) if len(neg_arr) else 0.0,
-                  1.0)
+    max_val = max(
+        float(np.max(pos_arr)) if len(pos_arr) else 0.0,
+        float(np.max(neg_arr)) if len(neg_arr) else 0.0,
+        1.0,
+    )
 
     fig, ax = plt.subplots(figsize=(10.5, 5.2), facecolor="#f8fafc")
     ax.set_facecolor("#ffffff")
@@ -1587,7 +1657,15 @@ def recap_page(df):
     for day in weekdays.values():
         day_df = week_data[week_data["Nama Hari"] == day]
         if day_df.empty:
-            rows[day] = {"Tanggal": "-", "Total Armada": 0, "Call": 0, "Beli Ada": 0, "Beli Ks Tambah": 0, "Beli Ks Baru": 0, "TBA Aktif": 0, "TBA Pasif": 0, "Kosong": 0, "Total Omset": 0, "Average Dropsize": 0.0, "% Availability Sebelum": "0.0%", "% Availability Sesudah": "0.0%", "EC": 0, "% EC": "0.0%", "% Repeat": "0.0%", "% OOS": "0.0%", "% Outlet Ecer": "0.0%", "Total Sampling": 0, "Kontak Konsumen": 0, "Laku Direct Selling": 0}
+            rows[day] = {
+                "Tanggal": "-", "Total Armada": 0, "Call": 0, "Beli Ada": 0,
+                "Beli Ks Tambah": 0, "Beli Ks Baru": 0, "TBA Aktif": 0, "TBA Pasif": 0,
+                "Kosong": 0, "Total Omset": 0, "Average Dropsize": 0.0,
+                "% Availability Sebelum": "0.0%", "% Availability Sesudah": "0.0%",
+                "EC": 0, "% EC": "0.0%", "% Repeat": "0.0%", "% OOS": "0.0%",
+                "% Outlet Ecer": "0.0%", "Total Sampling": 0, "Kontak Konsumen": 0,
+                "Laku Direct Selling": 0,
+            }
             continue
         total = lambda column: day_df[column].fillna(0).sum()
         beli, ks_tb, ks_b = total("Outlet Beli Ada"), total("Outlet Ks Tb"), total("Outlet Ks B")
@@ -1599,18 +1677,25 @@ def recap_page(df):
         repeat_denominator = beli + ks_tb + tba_a + tba_p
         rows[day] = {
             "Tanggal": datetime.strptime(day_df["Tanggal"].iloc[0], "%Y-%m-%d").strftime("%d/%m/%Y"),
-            "Total Armada": day_df["Nama Promotor"].nunique(), "Call": call,
-            "Beli Ada": beli, "Beli Ks Tambah": ks_tb, "Beli Ks Baru": ks_b,
-            "TBA Aktif": tba_a, "TBA Pasif": tba_p, "Kosong": kosong,
+            "Total Armada": day_df["Nama Promotor"].nunique(),
+            "Call": call,
+            "Beli Ada": beli,
+            "Beli Ks Tambah": ks_tb,
+            "Beli Ks Baru": ks_b,
+            "TBA Aktif": tba_a,
+            "TBA Pasif": tba_p,
+            "Kosong": kosong,
             "Total Omset": total("Omset (Bungkus)"),
             "Average Dropsize": round(total("Omset (Bungkus)") / total_beli, 1) if total_beli else 0.0,
             "% Availability Sebelum": f"{round(available / call * 100, 1) if call else 0.0}%",
             "% Availability Sesudah": f"{round(available_after / call * 100, 1) if call else 0.0}%",
-            "EC": total_beli, "% EC": f"{round(total_beli / call * 100, 1) if call else 0.0}%",
+            "EC": total_beli,
+            "% EC": f"{round(total_beli / call * 100, 1) if call else 0.0}%",
             "% Repeat": f"{round((beli + ks_tb) / repeat_denominator * 100, 1) if repeat_denominator else 0.0}%",
             "% OOS": f"{round(ks_tb / call * 100, 1) if call else 0.0}%",
             "% Outlet Ecer": f"{round(total('Outlet Buka Ecer') / call * 100, 1) if call else 0.0}%",
-            "Total Sampling": total("Jumlah Rokok Sampling"), "Kontak Konsumen": total("Jumlah Konsumen Trial"),
+            "Total Sampling": total("Jumlah Rokok Sampling"),
+            "Kontak Konsumen": total("Jumlah Konsumen Trial"),
             "Laku Direct Selling": total("Direct Selling"),
         }
     result = pd.DataFrame(rows)
@@ -1666,14 +1751,15 @@ def admin_protected_data_actions(df, today):
         if not confirm_single_delete:
             st.error("Centang konfirmasi sebelum menghapus laporan.")
         else:
-            with sqlite3.connect(DB_NAME) as conn:
+            with _get_db_connection() as conn:
                 conn.execute("DELETE FROM kanvas WHERE id = ?", (int(delete_id),))
+            _invalidate_data_caches()
             st.session_state["notifikasi_sukses"] = f"🗑️ Laporan ID #{delete_id} berhasil dihapus."
             st.rerun()
 
     st.markdown("#### 📥 Unduh Laporan")
     scope = st.selectbox("Pilih Rentang Data:", ["Semua Data", "Hari Ini"], key="download_scope")
-    exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df.copy()
+    exported = df[df["Tanggal"] == today] if scope == "Hari Ini" else df
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         exported.to_excel(writer, index=False, sheet_name="Laporan Kanvas")
@@ -1688,11 +1774,12 @@ def admin_protected_data_actions(df, today):
     delete_scope = st.selectbox("Pilih Data yang Dihapus:", ["Hari Ini", "Semua Data"], key="opt_hapus")
     confirm = st.checkbox("Saya memahami data yang dipilih akan dihapus permanen.")
     if st.button("🔥 Hapus Data", type="secondary", disabled=not confirm):
-        with sqlite3.connect(DB_NAME) as conn:
+        with _get_db_connection() as conn:
             if delete_scope == "Hari Ini":
                 conn.execute("DELETE FROM kanvas WHERE tanggal = ?", (today,))
             else:
                 conn.execute("DELETE FROM kanvas")
+        _invalidate_data_caches()
         st.success("🗑️ Data berhasil dihapus.")
         st.rerun()
 
@@ -1753,9 +1840,17 @@ def management_page(df, today, is_admin=True, locked_promoter=None):
         update = st.form_submit_button("💾 Perbarui Data", type="primary")
     if update:
         columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
-        values = [edit_date.strftime("%Y-%m-%d"), edit_promoter, PROMOTOR_ZONA[edit_promoter], edit_brand, *[int(edit_values[key]) for key in FIELD_LABELS], int(selected_id)]
-        with sqlite3.connect(DB_NAME) as conn:
+        values = [
+            edit_date.strftime("%Y-%m-%d"),
+            edit_promoter,
+            PROMOTOR_ZONA[edit_promoter],
+            edit_brand,
+            *[int(edit_values[key]) for key in FIELD_LABELS],
+            int(selected_id),
+        ]
+        with _get_db_connection() as conn:
             conn.execute(f"UPDATE kanvas SET {', '.join(f'{column} = ?' for column in columns)} WHERE id = ?", values)
+        _invalidate_data_caches()
         st.session_state["notifikasi_sukses"] = f"✏️ Data ID #{selected_id} berhasil diperbarui!"
         st.rerun()
 
@@ -1779,7 +1874,8 @@ def backup_restore_page(df):
         with st.spinner("Sedang mengambil data dari Google Sheets..."):
             ok, msg = restore_from_google_sheets()
         if ok:
-            st.session_state["last_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state["admin_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state["admin_restore_status"] = (True, msg)
             st.session_state["notifikasi_sukses"] = f"✅ {msg}"
             st.rerun()
         else:
@@ -1810,7 +1906,7 @@ def backup_restore_page(df):
             "rows": rows_payload,
         }
         try:
-            response = requests.post(WEBHOOK_URL, json=payload, timeout=25)
+            response = requests.post(WEBHOOK_URL, json=payload, timeout=20)
             response.raise_for_status()
             res_json = response.json()
             if isinstance(res_json, dict) and res_json.get("status") == "success":
@@ -1825,19 +1921,10 @@ def backup_restore_page(df):
 
 init_db()
 
-if not st.session_state.get("initial_restore_done", False):
-    with st.spinner("Menyinkronkan data terbaru dari Google Sheets..."):
-        ok, msg = restore_from_google_sheets()
-    st.session_state["initial_restore_status"] = (ok, msg)
-    if ok:
-        st.session_state["initial_restore_done"] = True
-        st.session_state["last_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
-
 now = datetime.now(TZ_WIB)
 today = now.strftime("%Y-%m-%d")
 
 if "notifikasi_sukses" in st.session_state:
-    st.balloons()
     st.success(st.session_state.pop("notifikasi_sukses"))
 if "notifikasi_error" in st.session_state:
     st.error(st.session_state.pop("notifikasi_error"))
@@ -1850,6 +1937,14 @@ if auth_role not in ("promotor", "admin"):
 is_admin = auth_role == "admin"
 logged_promoter = st.session_state.get("auth_promotor")
 promotor_module = st.session_state.get("promotor_assigned_module", "kanvas")
+
+if is_admin and not st.session_state.get("admin_initial_restore_done", False):
+    with st.spinner("Menyinkronkan data terbaru saat pertama masuk menu Admin..."):
+        ok, msg = restore_from_google_sheets()
+    st.session_state["admin_initial_restore_done"] = True
+    st.session_state["admin_restore_status"] = (ok, msg)
+    if ok:
+        st.session_state["admin_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
 
 if is_admin:
     st.sidebar.markdown("""
@@ -1870,11 +1965,12 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-restore_ok, restore_msg = st.session_state.get("initial_restore_status", (False, ""))
-if restore_ok:
-    st.sidebar.caption(f"🟢 Sync Google Sheets: {st.session_state.get('last_restore_time', '-')}")
-elif restore_msg:
-    st.sidebar.warning(f"⚠️ Auto-restore gagal: {restore_msg}")
+if is_admin:
+    restore_ok, restore_msg = st.session_state.get("admin_restore_status", (False, ""))
+    if restore_ok:
+        st.sidebar.caption(f"🟢 Sync Awal Admin: {st.session_state.get('admin_restore_time', '-')}")
+    elif restore_msg:
+        st.sidebar.warning(f"⚠️ Auto-restore admin gagal: {restore_msg}")
 
 st.sidebar.markdown("---")
 
@@ -1920,7 +2016,16 @@ else:
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Keluar / Ganti Akun", key="btn_logout"):
-    for key in ("auth_role", "auth_promotor", "promotor_assigned_module", "active_page", "form_preview_data"):
+    for key in (
+        "auth_role",
+        "auth_promotor",
+        "promotor_assigned_module",
+        "active_page",
+        "form_preview_data",
+        "admin_initial_restore_done",
+        "admin_restore_status",
+        "admin_restore_time",
+    ):
         st.session_state.pop(key, None)
     st.rerun()
 
