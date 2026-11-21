@@ -106,13 +106,147 @@ SURVEY_FEEDBACK_FIELDS = {
     "Komentar Negatif - Lainnya": "komentar_negatif_lainnya",
 }
 
-st.set_page_config(page_title="Form Entry Laporan Kanvas", page_icon="📋", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Sistem Kanvas & Survey — Djarum 76 Aksara",
+    page_icon="📋",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 st.markdown("""
 <style>
-.stApp { background-color: #f8fafc; }
-h1, h2, h3 { color: #0f172a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-.stButton>button { border-radius: 8px; font-weight: 600; width: 100%; }
-div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.stApp {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+}
+
+h1, h2, h3, h4 {
+    color: #0f172a;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* Hero Banner & Login Card */
+.hero-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #b91c1c 100%);
+    padding: 2rem 2.2rem;
+    border-radius: 18px;
+    color: #ffffff;
+    box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.32);
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.hero-header h1 {
+    color: #ffffff !important;
+    font-size: 1.85rem;
+    margin: 0 0 0.35rem 0;
+    font-weight: 800;
+}
+.hero-header p {
+    color: #cbd5e1;
+    font-size: 0.96rem;
+    margin: 0;
+}
+.hero-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fef08a;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    margin-bottom: 0.65rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.login-card {
+    background: #ffffff;
+    padding: 1.75rem 2rem;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+}
+
+.user-pill {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #ffffff;
+    padding: 0.95rem 1.1rem;
+    border-radius: 14px;
+    margin-bottom: 1rem;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+.user-pill .role-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #ffffff;
+    margin-bottom: 0.35rem;
+}
+.user-pill .role-tag.admin {
+    background: #d97706;
+}
+.user-pill .user-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.3;
+}
+.user-pill .user-sub {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-top: 0.15rem;
+}
+
+.section-card {
+    background: #ffffff;
+    padding: 1.35rem 1.5rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    margin-bottom: 1rem;
+}
+
+.stButton>button {
+    border-radius: 10px;
+    font-weight: 600;
+    width: 100%;
+    padding: 0.55rem 1rem;
+    transition: all 0.18s ease;
+}
+
+div[data-testid="stForm"] {
+    background: #ffffff;
+    padding: 1.5rem;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+div[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+div[data-testid="stMetric"] {
+    background: #ffffff;
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -204,15 +338,23 @@ def _safe_int(value, default=0):
 
 def restore_from_google_sheets():
     """Mengambil seluruh data DataKanvasAksara & SurveyKonsumen dari Google Sheets dan menimpa database lokal."""
-    try:
-        response = requests.get(
-            WEBHOOK_URL,
-            params={"action": "restore", "_ts": int(datetime.now(TZ_WIB).timestamp())},
-            timeout=25,
-        )
-        response.raise_for_status()
-    except requests.RequestException as err:
-        return False, f"Gagal menghubungi Google Sheets: {err}"
+    last_err = None
+    response = None
+    for _ in range(2):
+        try:
+            response = requests.get(
+                WEBHOOK_URL,
+                params={"action": "restore", "_ts": int(datetime.now(TZ_WIB).timestamp())},
+                timeout=60,
+            )
+            response.raise_for_status()
+            last_err = None
+            break
+        except requests.RequestException as err:
+            last_err = err
+
+    if last_err is not None or response is None:
+        return False, f"Gagal menghubungi Google Sheets: {last_err}"
 
     raw_text = response.text or ""
     try:
@@ -292,7 +434,7 @@ def restore_from_google_sheets():
                 values,
             )
 
-    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas (DataKanvasAksara) & {len(survey_rows)} data survey dari Google Sheets."
+    return True, f"Berhasil restore {len(kanvas_rows)} data kanvas & {len(survey_rows)} data survey."
 
 
 def load_data():
@@ -341,7 +483,7 @@ def save_report(data):
         )
         data_with_id = {"id": int(cursor.lastrowid), **data}
     try:
-        requests.post(WEBHOOK_URL, json=data_with_id, timeout=10).raise_for_status()
+        requests.post(WEBHOOK_URL, json=data_with_id, timeout=15).raise_for_status()
     except requests.RequestException:
         pass
 
@@ -356,7 +498,7 @@ def sync_survey_to_sheets(action, survey):
         raise ValueError(f"Aksi sinkronisasi survey tidak dikenal: {action}")
 
     try:
-        capability_response = requests.get(WEBHOOK_URL, timeout=10)
+        capability_response = requests.get(WEBHOOK_URL, timeout=15)
     except requests.RequestException as error:
         raise RuntimeError("Tidak dapat memeriksa dukungan survey pada webhook Google Sheets.") from error
     if not capability_response.ok:
@@ -375,7 +517,7 @@ def sync_survey_to_sheets(action, survey):
         )
 
     try:
-        response = requests.post(WEBHOOK_URL, json=payload, timeout=10)
+        response = requests.post(WEBHOOK_URL, json=payload, timeout=15)
     except requests.RequestException as error:
         raise RuntimeError("Tidak dapat menghubungi webhook Google Sheets.") from error
     if not response.ok:
@@ -391,14 +533,96 @@ def sync_survey_to_sheets(action, survey):
         raise RuntimeError("Respons webhook tidak mengonfirmasi sinkronisasi survey yang diminta.")
 
 
-def report_form():
+def login_page():
+    _, center_col, _ = st.columns([1, 2.2, 1])
+    with center_col:
+        st.markdown("""
+        <div class="hero-header">
+            <div class="hero-badge">Djarum 76 Aksara • Field Operation Portal</div>
+            <h1>📋 Sistem Laporan Kanvas & Survey Konsumen</h1>
+            <p>Silakan masuk sebagai <strong>Promotor</strong> atau <strong>Admin</strong> untuk melanjutkan aktivitas lapangan.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        tab_promotor, tab_admin = st.tabs(["🧑‍💼 Login Promotor", "🔐 Login Admin"])
+
+        with tab_promotor:
+            st.markdown("#### Masuk Sebagai Promotor")
+            st.caption("Pilih nama Anda terlebih dahulu, lalu tentukan menu kerja yang ingin dibuka.")
+
+            promoter_list = ["-- Pilih Nama Promotor --"] + list(PROMOTOR_ZONA.keys())
+            selected_promotor = st.selectbox(
+                "Nama Promotor",
+                promoter_list,
+                index=0,
+                key="login_select_promotor",
+            )
+
+            is_promoter_chosen = selected_promotor != "-- Pilih Nama Promotor --"
+            if is_promoter_chosen:
+                zona_promotor = PROMOTOR_ZONA[selected_promotor]
+                st.info(f"📍 Zona Tugas: **{zona_promotor}**")
+            else:
+                st.warning("Pilih nama promotor Anda terlebih dahulu untuk membuka pilihan menu.")
+
+            selected_module = st.radio(
+                "Pilih Menu Tujuan:",
+                ["📝 Entry Laporan Kanvas", "🗣️ Survey Konsumen"],
+                horizontal=True,
+                disabled=not is_promoter_chosen,
+                key="login_promotor_module",
+            )
+
+            if st.button(
+                "🚀 Masuk ke Aplikasi (Promotor)",
+                type="primary",
+                disabled=not is_promoter_chosen,
+                key="btn_login_promotor",
+            ):
+                st.session_state["auth_role"] = "promotor"
+                st.session_state["auth_promotor"] = selected_promotor
+                st.session_state["active_page"] = (
+                    "Survey Konsumen" if "Survey" in selected_module else "Laporan Kanvas"
+                )
+                st.rerun()
+
+        with tab_admin:
+            st.markdown("#### Masuk Sebagai Admin")
+            st.caption("Masukkan password admin untuk mengakses penuh modul Laporan Kanvas & Survey Konsumen.")
+
+            with st.form("form_login_admin_portal"):
+                admin_pwd = st.text_input("Password Admin", type="password", placeholder="Masukkan password...")
+                default_admin_module = st.radio(
+                    "Buka Langsung Halaman Awal:",
+                    ["📋 Laporan Kanvas (Semua Menu)", "🗣️ Survey Konsumen (Semua Menu)"],
+                    horizontal=True,
+                )
+                submit_admin = st.form_submit_button("🔓 Masuk Sebagai Admin", type="primary")
+
+            if submit_admin:
+                if admin_pwd == ADMIN_PASSWORD:
+                    st.session_state["auth_role"] = "admin"
+                    st.session_state["auth_promotor"] = None
+                    st.session_state["active_page"] = (
+                        "Survey Konsumen" if "Survey" in default_admin_module else "Laporan Kanvas"
+                    )
+                    st.rerun()
+                else:
+                    st.error("❌ Password Admin salah. Silakan coba lagi.")
+
+
+def report_form(locked_promoter=None):
     st.subheader("📝 Masukkan Data Laporan Baru")
     version = st.session_state.get("entry_form_version", 0)
     with st.form("form_laporan_kanvas"):
         c1, c2 = st.columns(2)
         with c1:
             date_value = st.date_input("Date", value=datetime.now(TZ_WIB).date(), key=f"entry_date_{version}")
-            promoter = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA), key=f"entry_promoter_{version}")
+            if locked_promoter:
+                promoter = locked_promoter
+                st.text_input("Nama Promotor", value=promoter, disabled=True)
+            else:
+                promoter = st.selectbox("Nama Promotor", list(PROMOTOR_ZONA), key=f"entry_promoter_{version}")
             brand = st.selectbox("Brand", ["Djarum 76 Aksara"], key=f"entry_brand_{version}")
         with c2:
             st.text_input("Zona (Otomatis)", value=PROMOTOR_ZONA[promoter], disabled=True)
@@ -550,32 +774,46 @@ def survey_promoter_status(survey_df):
             st.success("🎉 Seluruh promotor telah melakukan survey konsumen.")
 
 
-def consumer_survey_entry_page():
-    st.title("📝 Entry Survey Konsumen")
+def consumer_survey_entry_page(locked_promoter=None):
+    st.markdown("""
+    <div class="hero-header">
+        <div class="hero-badge">Voice of Customer • Djarum 76 Aksara</div>
+        <h1>🗣️ Entry Survey Konsumen</h1>
+        <p>Perekaman respon konsumen setelah mencoba produk di lapangan.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     version = st.session_state.get("survey_form_version", 0)
     bumo_options = load_bumo_options()
 
-    promoter_options = [""] + list(PROMOTOR_ZONA)
-    nama_promotor = st.selectbox(
-        "Nama Promotor",
-        promoter_options,
-        index=0,
-        format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
-        key=f"survey_promoter_{version}",
-    )
-    sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
-    nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
-    range_usia = st.selectbox(
-        "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
-    )
-    pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
-    bumo = st.selectbox(
-        "BUMO Rokok Konsumen",
-        bumo_options,
-        index=0,
-        format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
-        key=f"survey_bumo_{version}",
-    )
+    c_id1, c_id2 = st.columns(2)
+    with c_id1:
+        if locked_promoter:
+            nama_promotor = locked_promoter
+            st.text_input("Nama Promotor", value=nama_promotor, disabled=True, key=f"survey_promoter_locked_{version}")
+        else:
+            promoter_options = [""] + list(PROMOTOR_ZONA)
+            nama_promotor = st.selectbox(
+                "Nama Promotor",
+                promoter_options,
+                index=0,
+                format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+                key=f"survey_promoter_{version}",
+            )
+        sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
+        nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
+    with c_id2:
+        range_usia = st.selectbox(
+            "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
+        )
+        pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
+        bumo = st.selectbox(
+            "BUMO Rokok Konsumen",
+            bumo_options,
+            index=0,
+            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            key=f"survey_bumo_{version}",
+        )
 
     st.markdown("#### 📢 Awareness Djarum 76 Aksara")
     tahu_76_aksara = st.radio(
@@ -613,7 +851,7 @@ def consumer_survey_entry_page():
         negative_comments = {}
         positive_column, negative_column = st.columns(2)
         with positive_column:
-            st.markdown("#### Komentar Positif dari Rokok yang Dicoba")
+            st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba")
             for aspect in SURVEY_ASPECTS:
                 label = f"Komentar Positif - {aspect}"
                 key = SURVEY_FEEDBACK_FIELDS[label]
@@ -621,7 +859,7 @@ def consumer_survey_entry_page():
                     label, key=f"survey_{key}_{version}",
                 )
         with negative_column:
-            st.markdown("#### Komentar Negatif dari Rokok yang Dicoba")
+            st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba")
             for aspect in SURVEY_ASPECTS:
                 label = f"Komentar Negatif - {aspect}"
                 key = SURVEY_FEEDBACK_FIELDS[label]
@@ -667,7 +905,7 @@ def consumer_survey_entry_page():
         st.rerun()
 
 
-def survey_log_page():
+def survey_log_page(is_admin=False):
     st.title("📋 Log Entry Survey Konsumen")
     survey_df = load_survey_data()
     if survey_df.empty:
@@ -683,34 +921,35 @@ def survey_log_page():
             file_name=f"log_survey_konsumen_{datetime.now(TZ_WIB).strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-        st.markdown("#### 🗑️ Hapus Survey per Baris")
-        delete_id = st.selectbox(
-            "Pilih survey yang akan dihapus:",
-            survey_df["ID"].tolist(),
-            format_func=lambda value: (
-                f"ID #{value} — {survey_df.loc[survey_df['ID'] == value, 'Nama Konsumen'].iloc[0]} "
-                f"— {survey_df.loc[survey_df['ID'] == value, 'Nama Promotor'].iloc[0]}"
-            ),
-            key="delete_survey_id",
-        )
-        with st.form("form_hapus_satu_survey"):
-            confirm_delete = st.checkbox("Saya yakin ingin menghapus survey yang dipilih.")
-            delete_survey = st.form_submit_button("🗑️ Hapus Survey Terpilih", type="secondary")
-        if delete_survey:
-            if not confirm_delete:
-                st.error("Centang konfirmasi sebelum menghapus survey.")
-            else:
-                try:
-                    sync_survey_to_sheets("delete", delete_id)
-                except RuntimeError as error:
-                    st.error(f"Penghapusan dibatalkan karena backup Google Sheets gagal: {error}")
+        if is_admin:
+            st.markdown("#### 🗑️ Hapus Survey per Baris")
+            delete_id = st.selectbox(
+                "Pilih survey yang akan dihapus:",
+                survey_df["ID"].tolist(),
+                format_func=lambda value: (
+                    f"ID #{value} — {survey_df.loc[survey_df['ID'] == value, 'Nama Konsumen'].iloc[0]} "
+                    f"— {survey_df.loc[survey_df['ID'] == value, 'Nama Promotor'].iloc[0]}"
+                ),
+                key="delete_survey_id",
+            )
+            with st.form("form_hapus_satu_survey"):
+                confirm_delete = st.checkbox("Saya yakin ingin menghapus survey yang dipilih.")
+                delete_survey = st.form_submit_button("🗑️ Hapus Survey Terpilih", type="secondary")
+            if delete_survey:
+                if not confirm_delete:
+                    st.error("Centang konfirmasi sebelum menghapus survey.")
                 else:
-                    with sqlite3.connect(DB_NAME) as conn:
-                        conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
-                    st.session_state["notifikasi_sukses"] = (
-                        f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
-                    )
-                    st.rerun()
+                    try:
+                        sync_survey_to_sheets("delete", delete_id)
+                    except RuntimeError as error:
+                        st.error(f"Penghapusan dibatalkan karena backup Google Sheets gagal: {error}")
+                    else:
+                        with sqlite3.connect(DB_NAME) as conn:
+                            conn.execute("DELETE FROM survey_konsumen WHERE id = ?", (int(delete_id),))
+                        st.session_state["notifikasi_sukses"] = (
+                            f"✅ Survey ID #{delete_id} berhasil dihapus dari lokal dan Google Sheets."
+                        )
+                        st.rerun()
 
 
 def build_bumo_acceptability_summary(survey_df):
@@ -796,7 +1035,6 @@ def _render_donut_with_center_kpi(
         wedgeprops={"width": 0.36, "edgecolor": "white", "linewidth": 2.2},
     )
 
-    # Label nilai & persentase pada tiap segmen donat
     for wedge, val, lbl in zip(wedges, values, labels):
         if total <= 0 or val <= 0:
             continue
@@ -831,7 +1069,6 @@ def _render_donut_with_center_kpi(
                 arrowprops={"arrowstyle": "-", "color": "#94a3b8", "lw": 0.9},
             )
 
-    # Lingkaran tengah + Center KPI
     center_circle = plt.Circle((0, 0), 0.62, fc="white", ec="#e2e8f0", lw=1.5)
     ax.add_patch(center_circle)
     ax.text(
@@ -1275,24 +1512,7 @@ def log_page(df):
 
 def admin_protected_data_actions(df, today):
     st.markdown("---")
-    st.subheader("🔐 Aksi Data Terproteksi (Hapus Per Baris, Unduh Laporan, & Hapus Data)")
-    if "data_actions_authenticated" not in st.session_state:
-        st.session_state["data_actions_authenticated"] = False
-
-    if not st.session_state["data_actions_authenticated"]:
-        with st.form("form_login_aksi_data"):
-            password = st.text_input("Masukkan Password Admin untuk membuka menu ini:", type="password")
-            unlock = st.form_submit_button("🔓 Buka Menu Hapus & Unduh Data", type="primary")
-        if unlock:
-            if password == ADMIN_PASSWORD:
-                st.session_state["data_actions_authenticated"] = True
-                st.rerun()
-            st.error("❌ Password salah!")
-        return
-
-    if st.button("🔒 Kunci Kembali Menu Hapus & Unduh Data", key="lock_data_actions"):
-        st.session_state["data_actions_authenticated"] = False
-        st.rerun()
+    st.subheader("🗑️ Hapus Per Baris, Unduh Laporan, & Hapus Data")
 
     st.markdown("#### 🗑️ Hapus Data Per Baris")
     delete_id = st.selectbox(
@@ -1389,23 +1609,6 @@ def management_page(df, today):
 
 def backup_restore_page(df):
     st.title("☁️ Backup & Restore Google Sheets")
-    if "backup_authenticated" not in st.session_state:
-        st.session_state["backup_authenticated"] = False
-    if not st.session_state["backup_authenticated"]:
-        with st.form("backup_login"):
-            password = st.text_input("Password Admin:", type="password")
-            login = st.form_submit_button("🔓 Buka Menu Backup & Restore", type="primary")
-        if login:
-            if password == ADMIN_PASSWORD:
-                st.session_state["backup_authenticated"] = True
-                st.rerun()
-            st.error("❌ Password salah!")
-        return
-
-    if st.button("🔒 Kunci Menu Backup & Restore"):
-        st.session_state["backup_authenticated"] = False
-        st.rerun()
-
     st.markdown("---")
     st.subheader("📥 Restore Data dari Google Sheets")
     st.write(
@@ -1467,12 +1670,12 @@ def backup_restore_page(df):
 init_db()
 
 # Auto-restore setiap kali aplikasi dibuka atau halaman di-refresh
-if "initial_restore_done" not in st.session_state:
+if not st.session_state.get("initial_restore_done", False):
     with st.spinner("Menyinkronkan data terbaru dari Google Sheets..."):
         ok, msg = restore_from_google_sheets()
-    st.session_state["initial_restore_done"] = True
     st.session_state["initial_restore_status"] = (ok, msg)
     if ok:
+        st.session_state["initial_restore_done"] = True
         st.session_state["last_restore_time"] = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
 
 now = datetime.now(TZ_WIB)
@@ -1484,59 +1687,123 @@ if "notifikasi_sukses" in st.session_state:
 if "notifikasi_error" in st.session_state:
     st.error(st.session_state.pop("notifikasi_error"))
 
-# Status sinkronisasi otomatis di sidebar
+# Gerbang Login
+auth_role = st.session_state.get("auth_role")
+if auth_role not in ("promotor", "admin"):
+    login_page()
+    st.stop()
+
+is_admin = auth_role == "admin"
+logged_promoter = st.session_state.get("auth_promotor")
+
+# Sidebar User Card & Status Sinkronisasi
+if is_admin:
+    st.sidebar.markdown("""
+    <div class="user-pill">
+        <div class="role-tag admin">🔐 Administrator</div>
+        <div class="user-name">Admin Pusat</div>
+        <div class="user-sub">Akses Penuh • Kanvas & Survey</div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    zona_user = PROMOTOR_ZONA.get(logged_promoter, "-")
+    st.sidebar.markdown(f"""
+    <div class="user-pill">
+        <div class="role-tag">🧑‍💼 Promotor</div>
+        <div class="user-name">{logged_promoter}</div>
+        <div class="user-sub">📍 Zona {zona_user}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 restore_ok, restore_msg = st.session_state.get("initial_restore_status", (False, ""))
 if restore_ok:
     st.sidebar.caption(f"🟢 Sync Google Sheets: {st.session_state.get('last_restore_time', '-')}")
 elif restore_msg:
     st.sidebar.warning(f"⚠️ Auto-restore gagal: {restore_msg}")
 
-if st.session_state.get("active_page", "Laporan Kanvas") == "Survey Konsumen":
-    st.sidebar.title("🗣️ Survey Konsumen")
-    survey_menu = st.sidebar.radio(
-        "Menu Survey",
-        ["Entry Survey", "Log Entry Survey", "Monitoring Survey"],
-        key="survey_navigation",
+st.sidebar.markdown("---")
+
+# Navigasi berdasarkan Role
+if is_admin:
+    active_module = st.sidebar.radio(
+        "Modul Utama:",
+        ["📋 Laporan Kanvas", "🗣️ Survey Konsumen"],
+        index=0 if st.session_state.get("active_page", "Laporan Kanvas") == "Laporan Kanvas" else 1,
+        key="admin_module_switcher",
     )
+    st.session_state["active_page"] = "Laporan Kanvas" if "Laporan Kanvas" in active_module else "Survey Konsumen"
     st.sidebar.markdown("---")
-    if st.sidebar.button("← Kembali ke Laporan Kanvas", key="back_to_kanvas"):
-        st.session_state["active_page"] = "Laporan Kanvas"
-        st.rerun()
-    menu = "Survey Konsumen"
+
+    if st.session_state["active_page"] == "Survey Konsumen":
+        survey_menu = st.sidebar.radio(
+            "Sub-Menu Survey:",
+            ["Entry Survey", "Log Entry Survey", "Monitoring Survey"],
+            key="survey_navigation_admin",
+        )
+        menu = "Survey Konsumen"
+    else:
+        menu = st.sidebar.radio("Sub-Menu Laporan Kanvas:", [
+            "Form Entry Laporan Kanvas",
+            "Manajemen Data (Edit, Unduh, & Hapus)",
+            "Rekapitulasi Harian & Mingguan (Report Table)",
+            "Panel Admin & Log Laporan Kanvas (Semua Data)",
+            "Backup & Restore Google Sheets",
+        ])
 else:
-    st.sidebar.title("📋 Laporan Kanvas")
-    menu = st.sidebar.radio("Navigasi", [
-        "Form Entry Laporan Kanvas",
-        "Manajemen Data (Edit, Unduh, & Hapus)",
-        "Rekapitulasi Harian & Mingguan (Report Table)",
-        "Panel Admin & Log Laporan Kanvas (Semua Data)",
-        "Backup & Restore Google Sheets",
-    ])
+    active_module = st.sidebar.radio(
+        "Menu Promotor:",
+        ["📝 Entry Laporan Kanvas", "🗣️ Survey Konsumen"],
+        index=0 if st.session_state.get("active_page", "Laporan Kanvas") == "Laporan Kanvas" else 1,
+        key="promotor_module_switcher",
+    )
+    st.session_state["active_page"] = "Laporan Kanvas" if "Laporan Kanvas" in active_module else "Survey Konsumen"
     st.sidebar.markdown("---")
-    if st.sidebar.button("🗣️ Survey Konsumen", key="open_consumer_survey"):
-        st.session_state["active_page"] = "Survey Konsumen"
-        st.rerun()
 
-if menu == "Form Entry Laporan Kanvas":
-    st.markdown("<h2 style='text-align: center;'>📋 Form Entry Laporan Kanvas</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748b;'>Sistem Perekaman Data Kanvas Lapangan</p>", unsafe_allow_html=True)
+    if st.session_state["active_page"] == "Survey Konsumen":
+        survey_menu = st.sidebar.radio(
+            "Pilihan Halaman:",
+            ["Entry Survey", "Log Entry Survey"],
+            key="survey_navigation_promotor",
+        )
+        menu = "Survey Konsumen"
+    else:
+        menu = "Form Entry Laporan Kanvas"
 
+st.sidebar.markdown("---")
+if st.sidebar.button("🚪 Keluar / Ganti Akun", key="btn_logout"):
+    for key in ("auth_role", "auth_promotor", "active_page", "form_preview_data"):
+        st.session_state.pop(key, None)
+    st.rerun()
+
+# Routing Halaman
 if menu == "Form Entry Laporan Kanvas":
-    report_form()
+    st.markdown("""
+    <div class="hero-header">
+        <div class="hero-badge">Field Sales Operation • Djarum 76 Aksara</div>
+        <h1>📋 Form Entry Laporan Kanvas</h1>
+        <p>Sistem Perekaman Data Kanvas, Distribusi Outlet, & Aktivitas Promosi Lapangan.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    report_form(locked_promoter=None if is_admin else logged_promoter)
     st.markdown("---")
     daily_status(load_data(), today)
+
 elif menu == "Survey Konsumen":
     if survey_menu == "Entry Survey":
-        consumer_survey_entry_page()
+        consumer_survey_entry_page(locked_promoter=None if is_admin else logged_promoter)
     elif survey_menu == "Log Entry Survey":
-        survey_log_page()
-    elif survey_menu == "Monitoring Survey":
+        survey_log_page(is_admin=is_admin)
+    elif survey_menu == "Monitoring Survey" and is_admin:
         survey_monitoring_page()
-elif menu == "Manajemen Data (Edit, Unduh, & Hapus)":
+
+elif menu == "Manajemen Data (Edit, Unduh, & Hapus)" and is_admin:
     management_page(load_data(), today)
-elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
+
+elif menu == "Rekapitulasi Harian & Mingguan (Report Table)" and is_admin:
     recap_page(load_data())
-elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)":
+
+elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)" and is_admin:
     log_page(load_data())
-elif menu == "Backup & Restore Google Sheets":
+
+elif menu == "Backup & Restore Google Sheets" and is_admin:
     backup_restore_page(load_data())
