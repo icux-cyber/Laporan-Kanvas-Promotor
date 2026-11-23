@@ -63,6 +63,19 @@ PROMOTOR_ZONA = {
     "Indra Fredi Wibowo": "Tandes",
 }
 
+SURVEY_ONLY_PROMOTORS = [
+    "Sinatrya Feby Pracoyo",
+    "Edwin Sutansyah",
+    "Dwi Ardianto Prawira Utomo",
+    "Moh Nazibul Awal",
+    "Eko Tony Prasetiyo",
+    "Diska Akbar Hermanto",
+]
+
+ALL_SURVEY_PROMOTORS = list(PROMOTOR_ZONA.keys()) + [
+    p for p in SURVEY_ONLY_PROMOTORS if p not in PROMOTOR_ZONA
+]
+
 FIELD_LABELS = {
     "canvas_plan": "Canvas Plan",
     "outlet_beli_ada": "Outlet Beli Ada",
@@ -821,7 +834,7 @@ def login_page():
             st.markdown("**Masuk Sebagai Promotor**")
             st.caption("Pilih nama Anda terlebih dahulu, lalu tentukan menu kerja yang ingin dibuka.")
 
-            promoter_list = ["-- Pilih Nama Promotor --"] + list(PROMOTOR_ZONA.keys())
+            promoter_list = ["-- Pilih Nama Promotor --"] + ALL_SURVEY_PROMOTORS
             selected_promotor = st.selectbox(
                 "Nama Promotor",
                 promoter_list,
@@ -830,15 +843,24 @@ def login_page():
             )
 
             is_promoter_chosen = selected_promotor != "-- Pilih Nama Promotor --"
+            is_survey_only_promoter = selected_promotor in SURVEY_ONLY_PROMOTORS
             if is_promoter_chosen:
-                zona_promotor = PROMOTOR_ZONA[selected_promotor]
-                st.info(f"📍 Zona Tugas: **{zona_promotor}**")
+                if is_survey_only_promoter:
+                    st.info("🗣️ Akses Khusus: **Survey Konsumen** (Tidak memiliki akses ke Laporan Kanvas).")
+                else:
+                    zona_promotor = PROMOTOR_ZONA[selected_promotor]
+                    st.info(f"📍 Zona Tugas: **{zona_promotor}**")
             else:
                 st.caption("Pilih nama promotor terlebih dahulu untuk mengaktifkan pilihan menu.")
 
+            available_modules = (
+                ["🗣️ Survey Konsumen"]
+                if is_survey_only_promoter
+                else ["📝 Entry Laporan Kanvas", "🗣️ Survey Konsumen"]
+            )
             selected_module = st.radio(
                 "Pilih Menu Tujuan:",
-                ["📝 Entry Laporan Kanvas", "🗣️ Survey Konsumen"],
+                available_modules,
                 horizontal=True,
                 disabled=not is_promoter_chosen,
                 key="login_promotor_module",
@@ -852,12 +874,16 @@ def login_page():
             ):
                 st.session_state["auth_role"] = "promotor"
                 st.session_state["auth_promotor"] = selected_promotor
-                st.session_state["promotor_assigned_module"] = (
-                    "survey" if "Survey" in selected_module else "kanvas"
-                )
-                st.session_state["active_page"] = (
-                    "Survey Konsumen" if "Survey" in selected_module else "Laporan Kanvas"
-                )
+                if is_survey_only_promoter:
+                    st.session_state["promotor_assigned_module"] = "survey"
+                    st.session_state["active_page"] = "Survey Konsumen"
+                else:
+                    st.session_state["promotor_assigned_module"] = (
+                        "survey" if "Survey" in selected_module else "kanvas"
+                    )
+                    st.session_state["active_page"] = (
+                        "Survey Konsumen" if "Survey" in selected_module else "Laporan Kanvas"
+                    )
                 st.rerun()
 
         with tab_admin:
@@ -1008,8 +1034,8 @@ def survey_promoter_status(survey_df):
     promoter_names = promoter_names[promoter_names != ""]
     counts_by_promoter = promoter_names.value_counts().to_dict()
 
-    done_promoters = [p for p in PROMOTOR_ZONA if p in counts_by_promoter]
-    not_done_promoters = [p for p in PROMOTOR_ZONA if p not in counts_by_promoter]
+    done_promoters = [p for p in ALL_SURVEY_PROMOTORS if p in counts_by_promoter]
+    not_done_promoters = [p for p in ALL_SURVEY_PROMOTORS if p not in counts_by_promoter]
 
     tab_done, tab_not_done = st.tabs([
         f"✅ Sudah Survey ({len(done_promoters)})",
@@ -1020,7 +1046,7 @@ def survey_promoter_status(survey_df):
             done_rows = [
                 {
                     "Nama Promotor": p,
-                    "Zona": PROMOTOR_ZONA[p],
+                    "Zona": PROMOTOR_ZONA.get(p, "Khusus Survey"),
                     "Jumlah Survey": int(counts_by_promoter[p]),
                 }
                 for p in done_promoters
@@ -1034,7 +1060,7 @@ def survey_promoter_status(survey_df):
             not_done_rows = [
                 {
                     "Nama Promotor": p,
-                    "Zona": PROMOTOR_ZONA[p],
+                    "Zona": PROMOTOR_ZONA.get(p, "Khusus Survey"),
                     "Jumlah Survey": 0,
                 }
                 for p in not_done_promoters
@@ -1067,7 +1093,7 @@ def consumer_survey_entry_page(locked_promoter=None):
             nama_promotor = locked_promoter
             st.text_input("Nama Promotor", value=nama_promotor, disabled=True, key=f"survey_promoter_locked_{version}")
         else:
-            promoter_options = [""] + list(PROMOTOR_ZONA)
+            promoter_options = [""] + ALL_SURVEY_PROMOTORS
             nama_promotor = st.selectbox(
                 "Nama Promotor",
                 promoter_options,
@@ -1332,7 +1358,7 @@ def survey_edit_page(is_admin=False):
     st.markdown("##### Form Edit Log Survey Konsumen")
     c_id1, c_id2 = st.columns(2)
     with c_id1:
-        promoter_options = [""] + list(PROMOTOR_ZONA)
+        promoter_options = [""] + ALL_SURVEY_PROMOTORS
         current_promotor = str(row["Nama Promotor"] or "").strip()
         if current_promotor and current_promotor not in promoter_options:
             promoter_options.append(current_promotor)
@@ -2428,6 +2454,9 @@ if auth_role not in ("promotor", "admin"):
 
 is_admin = auth_role == "admin"
 logged_promoter = st.session_state.get("auth_promotor")
+if not is_admin and logged_promoter in SURVEY_ONLY_PROMOTORS:
+    st.session_state["promotor_assigned_module"] = "survey"
+    st.session_state["active_page"] = "Survey Konsumen"
 promotor_module = st.session_state.get("promotor_assigned_module", "kanvas")
 
 if is_admin and not st.session_state.get("admin_initial_restore_done", False):
@@ -2447,13 +2476,18 @@ if is_admin:
     </div>
     """, unsafe_allow_html=True)
 else:
-    zona_user = PROMOTOR_ZONA.get(logged_promoter, "-")
+    zona_user = PROMOTOR_ZONA.get(logged_promoter)
     modul_label = "Survey Konsumen" if promotor_module == "survey" else "Entry Laporan Kanvas"
+    sub_info = (
+        f"🗣️ Akses Khusus • {modul_label}"
+        if logged_promoter in SURVEY_ONLY_PROMOTORS or not zona_user
+        else f"📍 Zona {zona_user} • {modul_label}"
+    )
     st.sidebar.markdown(f"""
     <div class="user-pill">
         <div class="role-tag">🧑‍💼 Promotor</div>
         <div class="user-name">{logged_promoter}</div>
-        <div class="user-sub">📍 Zona {zona_user} • {modul_label}</div>
+        <div class="user-sub">{sub_info}</div>
     </div>
     """, unsafe_allow_html=True)
 
