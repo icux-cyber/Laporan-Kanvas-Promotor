@@ -1884,6 +1884,90 @@ def _render_donut_with_center_kpi(
     plt.close(fig)
 
 
+def _render_bumo_status_bar_chart(bumo_summary, total_respondents):
+    plot_df = bumo_summary.iloc[::-1].reset_index(drop=True)
+    n_rows = len(plot_df)
+    fig_height = max(4.2, 0.52 * n_rows + 1.5)
+
+    fig, ax = plt.subplots(figsize=(9.5, fig_height), facecolor="#f8fafc")
+    ax.set_facecolor("#ffffff")
+
+    y_pos = np.arange(n_rows, dtype=float)
+    labels = plot_df["BUMO Rokok Konsumen"].astype(str).tolist()
+    values = pd.to_numeric(plot_df["Jumlah Responden"], errors="coerce").fillna(0).tolist()
+    statuses = plot_df["Status Acceptable D.76 Aksara"].astype(str).tolist()
+    pos_vals = pd.to_numeric(plot_df["Respon Positif"], errors="coerce").fillna(0).astype(int).tolist()
+    neg_vals = pd.to_numeric(plot_df["Respon Negatif"], errors="coerce").fillna(0).astype(int).tolist()
+
+    status_color_map = {
+        "Diterima": "#16a34a",
+        "Tidak Diterima": "#dc2626",
+        "Imbang / Perlu Evaluasi": "#f59e0b",
+    }
+    colors = [status_color_map.get(st_lbl, "#3b82f6") for st_lbl in statuses]
+
+    bars = ax.barh(
+        y_pos,
+        values,
+        color=colors,
+        height=0.58,
+        edgecolor="#0f172a",
+        linewidth=0.55,
+        zorder=3,
+    )
+
+    max_v = max(values) if values else 1.0
+    for bar, val, st_lbl, pos_c, neg_c in zip(bars, values, statuses, pos_vals, neg_vals):
+        pct = (val / total_respondents * 100.0) if total_respondents > 0 else 0.0
+        ax.text(
+            val + max(max_v * 0.018, 0.15),
+            bar.get_y() + bar.get_height() / 2.0,
+            f"{int(val)} resp ({pct:.1f}%) • {st_lbl} [+{pos_c} / -{neg_c}]",
+            va="center",
+            ha="left",
+            fontsize=8.5,
+            fontweight="bold",
+            color="#0f172a",
+            zorder=4,
+        )
+
+    legend_handles = [
+        FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#16a34a", edgecolor="none"),
+        FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#dc2626", edgecolor="none"),
+        FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.2", facecolor="#f59e0b", edgecolor="none"),
+    ]
+    legend_labels = ["Diterima (Pos > Neg)", "Tidak Diterima (Neg > Pos)", "Imbang / Perlu Evaluasi"]
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontsize=9.2, fontweight="bold", color="#0f172a")
+    ax.set_xlim(0, max(max_v * 1.62, 2.0))
+    ax.set_xlabel("Jumlah Responden", fontsize=9.5, color="#334155")
+    ax.set_title(
+        f"Jumlah Responden per Rokok BUMO & Status Penerimaan D.76 Aksara (Total: {total_respondents} Responden)",
+        fontsize=11,
+        fontweight="bold",
+        color="#0f172a",
+        pad=12,
+    )
+    ax.grid(axis="x", linestyle="--", alpha=0.45, color="#cbd5e1", zorder=1)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(
+        legend_handles,
+        legend_labels,
+        title="Status Penerimaan",
+        loc="lower right",
+        frameon=True,
+        facecolor="white",
+        edgecolor="#e2e8f0",
+        fontsize=8.2,
+        title_fontsize=8.8,
+    )
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
 def _render_rounded_bar_highlight(aspects, positive_counts, negative_counts):
     pos_arr = np.array(positive_counts, dtype=float)
     neg_arr = np.array(negative_counts, dtype=float)
@@ -2157,22 +2241,7 @@ def survey_monitoring_page():
         )
 
         st.markdown("##### Rincian per Rokok BUMO & Status Penerimaan D.76 Aksara")
-        bumo_pie_labels = [
-            f"{row['BUMO Rokok Konsumen']} [{row['Status Acceptable D.76 Aksara']}]"
-            for _, row in bumo_summary.iterrows()
-        ]
-        bumo_pie_values = bumo_summary["Jumlah Responden"].tolist()
-        detail_palette = ["#2563eb", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#64748b"]
-        detail_colors = [detail_palette[i % len(detail_palette)] for i in range(len(bumo_pie_values))]
-        _render_donut_with_center_kpi(
-            values=bumo_pie_values,
-            labels=bumo_pie_labels,
-            title="Proporsi Responden per Rokok BUMO & Status Penerimaan",
-            kpi_value=total_bumo_respondents,
-            kpi_sublabel="Total Responden",
-            colors=detail_colors,
-            figsize=(8.5, 5.8),
-        )
+        _render_bumo_status_bar_chart(bumo_summary, total_bumo_respondents)
 
         st.markdown("##### Rincian Kesimpulan per BUMO")
         for _, item in bumo_summary.iterrows():
