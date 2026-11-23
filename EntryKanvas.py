@@ -72,11 +72,11 @@ FIELD_LABELS = {
     "outlet_tb_ada_p": "Outlet TB Ada P",
     "outlet_tb_ks": "Outlet TB Ks",
     "omset_bungkus": "Omset (Bungkus)",
-    "promsus_10_1": "Promsus 10+1",
-    "promsus_2_1": "Promsus 2+1",
-    "promsus_1_1": "Promsus 1+1",
+    "promsus_10_1": "Promsus 5+1",
+    "promsus_2_1": "Promsus 2+1 Mie",
+    "promsus_1_1": "Promsus 1+1 Mie",
     "promsus_3_1": "Promsus 3+1",
-    "promsus_n_mie_instan": "N+ Mie Instan",
+    "promsus_n_mie_instan": "N+ Lain-lain",
     "outlet_buka_ecer": "Outlet Buka Ecer",
     "jumlah_rokok_sampling": "Jumlah Rokok Sampling",
     "jumlah_konsumen_trial": "Jumlah Konsumen Trial",
@@ -103,6 +103,17 @@ PROMOTION_KEYS = [
     "direct_selling",
 ]
 SURVEY_AGE_RANGES = ["18-24 Tahun", "25-30 Tahun", "31-34 Tahun", "35-40 Tahun", "40+ Tahun"]
+SURVEY_JOB_OPTIONS = [
+    "",
+    "Karyawan Swasta",
+    "Mahasiswa",
+    "Ojek",
+    "Pegawai Negeri",
+    "Pelajar",
+    "Sopir",
+    "Wirausaha",
+    "Lainnya",
+]
 SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
 SURVEY_AWARENESS_SOURCES = [
     "Papan Reklame",
@@ -636,9 +647,9 @@ def _load_kanvas_cached(_mtime):
             outlet_ks_tb AS [Outlet Ks Tb], outlet_ks_b AS [Outlet Ks B],
             outlet_tb_ada_a AS [Outlet TB Ada A], outlet_tb_ada_p AS [Outlet TB Ada P],
             outlet_tb_ks AS [Outlet TB Ks], omset_bungkus AS [Omset (Bungkus)],
-            promsus_10_1 AS [Promsus 10+1], promsus_3_1 AS [Promsus 3+1],
-            promsus_2_1 AS [Promsus 2+1], promsus_1_1 AS [Promsus 1+1],
-            promsus_n_mie_instan AS [N+ Mie Instan], outlet_buka_ecer AS [Outlet Buka Ecer],
+            promsus_10_1 AS [Promsus 5+1], promsus_3_1 AS [Promsus 3+1],
+            promsus_2_1 AS [Promsus 2+1 Mie], promsus_1_1 AS [Promsus 1+1 Mie],
+            promsus_n_mie_instan AS [N+ Lain-lain], outlet_buka_ecer AS [Outlet Buka Ecer],
             jumlah_rokok_sampling AS [Jumlah Rokok Sampling],
             jumlah_konsumen_trial AS [Jumlah Konsumen Trial],
             direct_selling AS [Direct Selling], waktu_submit AS [Waktu Submit]
@@ -925,7 +936,11 @@ def report_form(locked_promoter=None):
     pending = st.session_state.get("form_preview_data")
     if pending:
         st.markdown("### 📋 Preview Data Laporan Baru")
-        st.dataframe(pd.DataFrame(list(pending.items()), columns=["Keterangan", "Nilai"]), use_container_width=True, hide_index=True)
+        preview_rows = [
+            (FIELD_LABELS.get(k, k), v)
+            for k, v in pending.items()
+        ]
+        st.dataframe(pd.DataFrame(preview_rows, columns=["Keterangan", "Nilai"]), use_container_width=True, hide_index=True)
         b1, b2 = st.columns(2)
         with b1:
             if st.button("❌ Batal / Edit Kembali"):
@@ -1062,7 +1077,22 @@ def consumer_survey_entry_page(locked_promoter=None):
         range_usia = st.selectbox(
             "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
         )
-        pekerjaan = st.text_input("Pekerjaan Konsumen", key=f"survey_job_{version}")
+        pekerjaan_choice = st.selectbox(
+            "Pekerjaan Konsumen",
+            SURVEY_JOB_OPTIONS,
+            index=0,
+            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            key=f"survey_job_{version}",
+        )
+        if pekerjaan_choice == "Lainnya":
+            pekerjaan_custom = st.text_input(
+                "Tuliskan Pekerjaan Konsumen (Lainnya)",
+                placeholder="Contoh: Pekerjaan lainnya...",
+                key=f"survey_job_other_{version}",
+            ).strip()
+            pekerjaan = pekerjaan_custom or "Lainnya"
+        else:
+            pekerjaan = pekerjaan_choice
         bumo_choice = st.selectbox(
             "BUMO Rokok Konsumen",
             bumo_options,
