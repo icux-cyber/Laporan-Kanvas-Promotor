@@ -389,6 +389,71 @@ div[data-testid="stMetric"] {
     border: 1px solid rgba(212, 175, 55, 0.25);
     box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 }
+
+.leaderboard-podium {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+    margin: 0.65rem 0 1.15rem 0;
+}
+.podium-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 14px;
+    padding: 1rem 1.1rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 18px -6px rgba(15, 23, 42, 0.08);
+    position: relative;
+}
+.podium-card.rank-1 {
+    background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1.5px solid #eab308;
+    box-shadow: 0 10px 24px -6px rgba(202, 138, 4, 0.24);
+}
+.podium-card.rank-2 {
+    background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1.5px solid #94a3b8;
+}
+.podium-card.rank-3 {
+    background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
+    border: 1.5px solid #fb923c;
+}
+.podium-rank {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: #0f172a;
+    color: #facc15;
+    margin-bottom: 0.45rem;
+}
+.podium-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.2rem;
+}
+.podium-sub {
+    font-size: 0.78rem;
+    color: #475569;
+    margin-bottom: 0.65rem;
+}
+.podium-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+}
+.podium-stat-label {
+    color: #64748b;
+    display: block;
+    font-size: 0.7rem;
+}
+.podium-stat-val {
+    color: #0f172a;
+    font-weight: 700;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -2104,6 +2169,375 @@ def survey_monitoring_page():
     )
 
 
+
+
+def _compute_achievement_metrics(df, group_col):
+    work = df.copy()
+    for col in [
+        "Canvas Plan",
+        "Outlet Beli Ada",
+        "Outlet Ks Tb",
+        "Outlet Ks B",
+        "Outlet TB Ada A",
+        "Outlet TB Ada P",
+        "Outlet TB Ks",
+        "Omset (Bungkus)",
+        "Outlet Buka Ecer",
+    ]:
+        work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0)
+
+    work[group_col] = work[group_col].fillna("").astype(str).str.strip()
+    work = work[work[group_col] != ""]
+    if work.empty:
+        return pd.DataFrame()
+
+    rows = []
+    for key_val, grp in work.groupby(group_col, sort=False):
+        beli = grp["Outlet Beli Ada"].sum()
+        ks_tb = grp["Outlet Ks Tb"].sum()
+        ks_b = grp["Outlet Ks B"].sum()
+        tba_a = grp["Outlet TB Ada A"].sum()
+        tba_p = grp["Outlet TB Ada P"].sum()
+        kosong = grp["Outlet TB Ks"].sum()
+        canvas_plan = grp["Canvas Plan"].sum()
+        omset = grp["Omset (Bungkus)"].sum()
+        ecer = grp["Outlet Buka Ecer"].sum()
+
+        call = beli + ks_tb + ks_b + tba_a + tba_p + kosong
+        total_beli = beli + ks_tb + ks_b
+        available_after = beli + ks_tb + ks_b + tba_a + tba_p
+
+        realisasi_plan_pct = round((call / canvas_plan * 100.0), 1) if canvas_plan > 0 else 0.0
+        avg_dropsize = round((omset / total_beli), 1) if total_beli > 0 else 0.0
+        avail_after_pct = round((available_after / call * 100.0), 1) if call > 0 else 0.0
+        ec_pct = round((total_beli / call * 100.0), 1) if call > 0 else 0.0
+        ecer_pct = round((ecer / call * 100.0), 1) if call > 0 else 0.0
+
+        extra_info = {}
+        if group_col == "Nama Promotor":
+            zona_vals = grp["Zona"].dropna().astype(str).str.strip().unique().tolist()
+            zona_str = ", ".join([z for z in zona_vals if z]) or PROMOTOR_ZONA.get(key_val, "-")
+            extra_info["Zona"] = zona_str
+            extra_info["Jumlah Laporan"] = int(len(grp))
+        else:
+            extra_info["Jumlah Tim / Promotor"] = int(grp["Nama Promotor"].nunique())
+            extra_info["Jumlah Laporan"] = int(len(grp))
+
+        rows.append({
+            group_col: key_val,
+            **extra_info,
+            "Call": int(call),
+            "Canvas Plan": int(canvas_plan),
+            "Realisasi Plan (%)": realisasi_plan_pct,
+            "Omset (Bungkus)": int(omset),
+            "Avg Dropsize": avg_dropsize,
+            "% Availability Sesudah": avail_after_pct,
+            "% EC": ec_pct,
+            "% Outlet Ecer": ecer_pct,
+            "EC (Outlet)": int(total_beli),
+            "Outlet Ecer": int(ecer),
+        })
+
+    res = pd.DataFrame(rows)
+    if res.empty:
+        return res
+
+    # Skor gabungan normalisasi untuk ranking umum leaderboard
+    def _norm(series):
+        s = series.astype(float)
+        rng = float(s.max() - s.min())
+        if rng <= 0:
+            return pd.Series([1.0] * len(s), index=s.index)
+        return (s - s.min()) / rng
+
+    score = (
+        0.15 * _norm(res["Realisasi Plan (%)"])
+        + 0.125 * _norm(res["Omset (Bungkus)"])
+        + 0.125 * _norm(res["Avg Dropsize"])
+        + 0.20 * _norm(res["% Availability Sesudah"])
+        + 0.25 * _norm(res["% EC"])
+        + 0.15 * _norm(res["% Outlet Ecer"])
+    )
+    res["Skor Leaderboard"] = np.round(score * 100.0, 1)
+    res = res.sort_values(
+        by=["Skor Leaderboard", "Omset (Bungkus)", "Realisasi Plan (%)"],
+        ascending=[False, False, False],
+    ).reset_index(drop=True)
+    res.insert(0, "Rank", range(1, len(res) + 1))
+    return res
+
+
+def _render_podium_cards(df_rank, entity_col, subtitle_col=None):
+    top3 = df_rank.head(3)
+    if top3.empty:
+        return
+    medals = {1: "🥇 JUARA 1", 2: "🥈 JUARA 2", 3: "🥉 JUARA 3"}
+    cards_html = ['<div class="leaderboard-podium">']
+    for _, r in top3.iterrows():
+        rk = int(r["Rank"])
+        rk_class = f"rank-{rk}" if rk in (1, 2, 3) else ""
+        badge = medals.get(rk, f"#{rk}")
+        name_txt = str(r[entity_col])
+        sub_txt = (
+            f"Zona: {r[subtitle_col]} • Skor: {r['Skor Leaderboard']}"
+            if subtitle_col and subtitle_col in r
+            else f"{r['Jumlah Tim / Promotor']} Promotor • Skor: {r['Skor Leaderboard']}"
+        )
+        cards_html.append(f"""
+        <div class="podium-card {rk_class}">
+            <div class="podium-rank">{badge}</div>
+            <div class="podium-title">{name_txt}</div>
+            <div class="podium-sub">{sub_txt}</div>
+            <div class="podium-stat-grid">
+                <div><span class="podium-stat-label">Realisasi Plan</span><span class="podium-stat-val">{r['Realisasi Plan (%)']}%</span></div>
+                <div><span class="podium-stat-label">Omset (Bks)</span><span class="podium-stat-val">{int(r['Omset (Bungkus)']):,}</span></div>
+                <div><span class="podium-stat-label">Avg Dropsize</span><span class="podium-stat-val">{r['Avg Dropsize']}</span></div>
+                <div><span class="podium-stat-label">% Avail Sesudah</span><span class="podium-stat-val">{r['% Availability Sesudah']}%</span></div>
+                <div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r['% EC']}%</span></div>
+                <div><span class="podium-stat-label">% Outlet Ecer</span><span class="podium-stat-val">{r['% Outlet Ecer']}%</span></div>
+            </div>
+        </div>
+        """)
+    cards_html.append("</div>")
+    st.markdown("".join(cards_html), unsafe_allow_html=True)
+
+
+def _render_metric_chart(df_rank, entity_col, metric_col, title, is_pct=False):
+    top_df = df_rank.head(10).iloc[::-1]
+    if top_df.empty:
+        return
+    fig, ax = plt.subplots(figsize=(8.5, max(3.6, 0.45 * len(top_df) + 1.2)), facecolor="#f8fafc")
+    ax.set_facecolor("#ffffff")
+
+    labels = top_df[entity_col].astype(str).tolist()
+    vals = pd.to_numeric(top_df[metric_col], errors="coerce").fillna(0).tolist()
+    colors = ["#94a3b8"] * len(vals)
+    if len(colors) >= 1:
+        colors[-1] = "#eab308"
+    if len(colors) >= 2:
+        colors[-2] = "#3b82f6"
+    if len(colors) >= 3:
+        colors[-3] = "#f97316"
+
+    bars = ax.barh(labels, vals, color=colors, height=0.58, edgecolor="#0f172a", linewidth=0.5)
+    max_v = max(vals) if vals else 1.0
+    for bar, v in zip(bars, vals):
+        txt = f"{v:.1f}%" if is_pct else (f"{int(round(v)):,}" if float(v).is_integer() else f"{v:.1f}")
+        ax.text(
+            v + max(max_v * 0.015, 0.3),
+            bar.get_y() + bar.get_height() / 2,
+            txt,
+            va="center",
+            ha="left",
+            fontsize=8.5,
+            fontweight="bold",
+            color="#0f172a",
+        )
+
+    ax.set_xlim(0, max(max_v * 1.18, 1.0))
+    ax.set_title(title, fontsize=10.5, fontweight="bold", color="#0f172a", pad=10)
+    ax.grid(axis="x", linestyle="--", alpha=0.45, color="#cbd5e1")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+
+def achievement_leaderboard_page(df, locked_promoter=None):
+    st.markdown("""
+    <div class="hero-header">
+        <div class="hero-badge">Performance Leaderboard • Djarum 76 Aksara</div>
+        <h1>🏆 Dashboard Pencapaian Per Team & Per Zona</h1>
+        <p>Bobot Skor: Realisasi Plan 15% • Omset & Avg Dropsize 25% (12.5% + 12.5%) • % Availability Sesudah 20% • % EC 25% • % Outlet Ecer 15%</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if df.empty:
+        st.info("📭 Belum ada data laporan kanvas untuk menampilkan dashboard pencapaian.")
+        return
+
+    work = df.copy()
+    work["Tanggal_DT"] = pd.to_datetime(work["Tanggal"], errors="coerce")
+    valid_dates = work["Tanggal_DT"].dropna()
+
+    f1, f2, f3 = st.columns(3)
+    period_mode = f1.selectbox(
+        "Filter Periode:",
+        ["Semua Periode", "Hari Ini", "Minggu Tertentu", "Bulan Tertentu", "Rentang Tanggal"],
+        key="lb_period_mode",
+    )
+
+    if period_mode == "Hari Ini":
+        today_str = datetime.now(TZ_WIB).strftime("%Y-%m-%d")
+        work = work[work["Tanggal"] == today_str]
+    elif period_mode == "Minggu Tertentu":
+        if not valid_dates.empty:
+            years = sorted(valid_dates.dt.year.unique(), reverse=True)
+            sel_yr = f2.selectbox("Tahun", years, key="lb_yr_wk")
+            yr_df = work[work["Tanggal_DT"].dt.year == sel_yr]
+            weeks = sorted(yr_df["Tanggal_DT"].dropna().dt.isocalendar().week.unique(), reverse=True)
+            sel_wk = f3.selectbox("Minggu ke-", weeks, key="lb_wk")
+            work = yr_df[yr_df["Tanggal_DT"].dt.isocalendar().week == sel_wk]
+    elif period_mode == "Bulan Tertentu":
+        if not valid_dates.empty:
+            months = sorted(valid_dates.dt.strftime("%Y-%m").unique(), reverse=True)
+            sel_mo = f2.selectbox("Bulan (YYYY-MM)", months, key="lb_mo")
+            work = work[work["Tanggal_DT"].dt.strftime("%Y-%m") == sel_mo]
+    elif period_mode == "Rentang Tanggal":
+        min_d = valid_dates.min().date() if not valid_dates.empty else datetime.now(TZ_WIB).date()
+        max_d = valid_dates.max().date() if not valid_dates.empty else datetime.now(TZ_WIB).date()
+        start_d = f2.date_input("Dari Tanggal", value=min_d, key="lb_start_d")
+        end_d = f3.date_input("Sampai Tanggal", value=max_d, key="lb_end_d")
+        work = work[(work["Tanggal_DT"].dt.date >= start_d) & (work["Tanggal_DT"].dt.date <= end_d)]
+
+    if work.empty:
+        st.warning("⚠️ Tidak ada data laporan kanvas pada periode yang dipilih.")
+        return
+
+    sort_criteria_map = {
+        "Skor Leaderboard Gabungan": ("Skor Leaderboard", False),
+        "1. Realisasi Kanvas Plan (%)": ("Realisasi Plan (%)", False),
+        "2a. Jumlah Omset Terbanyak (Bungkus)": ("Omset (Bungkus)", False),
+        "2b. Average Dropsize Tertinggi": ("Avg Dropsize", False),
+        "3. % Availability Sesudah": ("% Availability Sesudah", False),
+        "4. % EC": ("% EC", False),
+        "5. % Outlet Ecer": ("% Outlet Ecer", False),
+    }
+    selected_sort_label = st.selectbox(
+        "Urutkan Leaderboard Berdasarkan:",
+        list(sort_criteria_map.keys()),
+        key="lb_sort_by",
+    )
+    sort_col, asc_flag = sort_criteria_map[selected_sort_label]
+
+    tab_team, tab_zona = st.tabs(["🧑‍💼 Leaderboard Per Team (Promotor)", "📍 Leaderboard Per Zona"])
+
+    with tab_team:
+        team_df = _compute_achievement_metrics(work, "Nama Promotor")
+        if team_df.empty:
+            st.info("Belum ada data pencapaian per team.")
+        else:
+            team_df = team_df.sort_values(
+                by=[sort_col, "Omset (Bungkus)", "Realisasi Plan (%)"],
+                ascending=[asc_flag, False, False],
+            ).reset_index(drop=True)
+            team_df["Rank"] = range(1, len(team_df) + 1)
+
+            if locked_promoter:
+                my_row = team_df[team_df["Nama Promotor"] == locked_promoter]
+                if not my_row.empty:
+                    r0 = my_row.iloc[0]
+                    st.info(
+                        f"📌 Posisi Anda (**{locked_promoter}**): **Rank #{int(r0['Rank'])}** dari {len(team_df)} promotor "
+                        f"| Realisasi Plan: **{r0['Realisasi Plan (%)']}%** | Omset: **{int(r0['Omset (Bungkus)']):,} bks** "
+                        f"| Avg Dropsize: **{r0['Avg Dropsize']}**"
+                    )
+
+            st.markdown("### 🏅 Top 3 Leaderboard Per Team")
+            _render_podium_cards(team_df, "Nama Promotor", subtitle_col="Zona")
+
+            top_plan = team_df.sort_values("Realisasi Plan (%)", ascending=False).iloc[0]
+            top_omset = team_df.sort_values("Omset (Bungkus)", ascending=False).iloc[0]
+            top_drop = team_df.sort_values("Avg Dropsize", ascending=False).iloc[0]
+            top_avail = team_df.sort_values("% Availability Sesudah", ascending=False).iloc[0]
+
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Top Realisasi Plan", f"{top_plan['Realisasi Plan (%)']}%", top_plan["Nama Promotor"])
+            m2.metric("Top Omset", f"{int(top_omset['Omset (Bungkus)']):,} bks", top_omset["Nama Promotor"])
+            m3.metric("Top Avg Dropsize", f"{top_drop['Avg Dropsize']}", top_drop["Nama Promotor"])
+            m4.metric("Top % Avail Sesudah", f"{top_avail['% Availability Sesudah']}%", top_avail["Nama Promotor"])
+
+            st.markdown("### 📋 Tabel Lengkap Leaderboard Per Team")
+            display_team = team_df[[
+                "Rank",
+                "Nama Promotor",
+                "Zona",
+                "Skor Leaderboard",
+                "Realisasi Plan (%)",
+                "Omset (Bungkus)",
+                "Avg Dropsize",
+                "% Availability Sesudah",
+                "% EC",
+                "% Outlet Ecer",
+                "Call",
+                "Canvas Plan",
+            ]].copy()
+            display_team["Realisasi Plan (%)"] = display_team["Realisasi Plan (%)"].map(lambda x: f"{x:.1f}%")
+            display_team["% Availability Sesudah"] = display_team["% Availability Sesudah"].map(lambda x: f"{x:.1f}%")
+            display_team["% EC"] = display_team["% EC"].map(lambda x: f"{x:.1f}%")
+            display_team["% Outlet Ecer"] = display_team["% Outlet Ecer"].map(lambda x: f"{x:.1f}%")
+            st.dataframe(display_team, use_container_width=True, hide_index=True)
+
+            st.markdown("### 📊 Grafik Pencapaian Per Team")
+            g1, g2 = st.columns(2)
+            with g1:
+                _render_metric_chart(team_df, "Nama Promotor", "Realisasi Plan (%)", "1. Realisasi Kanvas Plan (%)", is_pct=True)
+                _render_metric_chart(team_df, "Nama Promotor", "% Availability Sesudah", "3. % Availability Sesudah", is_pct=True)
+                _render_metric_chart(team_df, "Nama Promotor", "% Outlet Ecer", "5. % Outlet Ecer", is_pct=True)
+            with g2:
+                _render_metric_chart(team_df, "Nama Promotor", "Omset (Bungkus)", "2a. Jumlah Omset (Bungkus)", is_pct=False)
+                _render_metric_chart(team_df, "Nama Promotor", "Avg Dropsize", "2b. Average Dropsize", is_pct=False)
+                _render_metric_chart(team_df, "Nama Promotor", "% EC", "4. % EC", is_pct=True)
+
+    with tab_zona:
+        zona_df = _compute_achievement_metrics(work, "Zona")
+        if zona_df.empty:
+            st.info("Belum ada data pencapaian per zona.")
+        else:
+            zona_df = zona_df.sort_values(
+                by=[sort_col, "Omset (Bungkus)", "Realisasi Plan (%)"],
+                ascending=[asc_flag, False, False],
+            ).reset_index(drop=True)
+            zona_df["Rank"] = range(1, len(zona_df) + 1)
+
+            st.markdown("### 🏅 Top 3 Leaderboard Per Zona")
+            _render_podium_cards(zona_df, "Zona", subtitle_col=None)
+
+            z_plan = zona_df.sort_values("Realisasi Plan (%)", ascending=False).iloc[0]
+            z_omset = zona_df.sort_values("Omset (Bungkus)", ascending=False).iloc[0]
+            z_drop = zona_df.sort_values("Avg Dropsize", ascending=False).iloc[0]
+            z_ec = zona_df.sort_values("% EC", ascending=False).iloc[0]
+
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Zona Top Plan", f"{z_plan['Realisasi Plan (%)']}%", z_plan["Zona"])
+            k2.metric("Zona Top Omset", f"{int(z_omset['Omset (Bungkus)']):,} bks", z_omset["Zona"])
+            k3.metric("Zona Top Dropsize", f"{z_drop['Avg Dropsize']}", z_drop["Zona"])
+            k4.metric("Zona Top % EC", f"{z_ec['% EC']}%", z_ec["Zona"])
+
+            st.markdown("### 📋 Tabel Lengkap Leaderboard Per Zona")
+            display_zona = zona_df[[
+                "Rank",
+                "Zona",
+                "Jumlah Tim / Promotor",
+                "Skor Leaderboard",
+                "Realisasi Plan (%)",
+                "Omset (Bungkus)",
+                "Avg Dropsize",
+                "% Availability Sesudah",
+                "% EC",
+                "% Outlet Ecer",
+                "Call",
+                "Canvas Plan",
+            ]].copy()
+            display_zona["Realisasi Plan (%)"] = display_zona["Realisasi Plan (%)"].map(lambda x: f"{x:.1f}%")
+            display_zona["% Availability Sesudah"] = display_zona["% Availability Sesudah"].map(lambda x: f"{x:.1f}%")
+            display_zona["% EC"] = display_zona["% EC"].map(lambda x: f"{x:.1f}%")
+            display_zona["% Outlet Ecer"] = display_zona["% Outlet Ecer"].map(lambda x: f"{x:.1f}%")
+            st.dataframe(display_zona, use_container_width=True, hide_index=True)
+
+            st.markdown("### 📊 Grafik Pencapaian Per Zona")
+            zg1, zg2 = st.columns(2)
+            with zg1:
+                _render_metric_chart(zona_df, "Zona", "Realisasi Plan (%)", "1. Realisasi Kanvas Plan Per Zona (%)", is_pct=True)
+                _render_metric_chart(zona_df, "Zona", "% Availability Sesudah", "3. % Availability Sesudah Per Zona", is_pct=True)
+                _render_metric_chart(zona_df, "Zona", "% Outlet Ecer", "5. % Outlet Ecer Per Zona", is_pct=True)
+            with zg2:
+                _render_metric_chart(zona_df, "Zona", "Omset (Bungkus)", "2a. Jumlah Omset Per Zona (Bungkus)", is_pct=False)
+                _render_metric_chart(zona_df, "Zona", "Avg Dropsize", "2b. Average Dropsize Per Zona", is_pct=False)
+                _render_metric_chart(zona_df, "Zona", "% EC", "4. % EC Per Zona", is_pct=True)
+
+
 def recap_page(df, locked_promoter=None):
     st.title("📈 Rekapitulasi Harian & Mingguan (Report Table)")
     work = df[df["Nama Promotor"] == locked_promoter].copy() if locked_promoter else df.copy()
@@ -2520,6 +2954,7 @@ if is_admin:
     else:
         menu = st.sidebar.radio("Sub-Menu Laporan Kanvas:", [
             "Form Entry Laporan Kanvas",
+            "Dashboard Pencapaian (Leaderboard)",
             "Manajemen Data (Edit, Unduh, & Hapus)",
             "Rekapitulasi Harian & Mingguan (Report Table)",
             "Panel Admin & Log Laporan Kanvas (Semua Data)",
@@ -2538,6 +2973,7 @@ else:
             "Menu Laporan Kanvas:",
             [
                 "Form Entry Laporan Kanvas",
+                "Dashboard Pencapaian (Leaderboard)",
                 "Edit Laporan",
                 "Rekapitulasi Harian & Mingguan (Report Table)",
             ],
@@ -2588,6 +3024,9 @@ elif menu == "Survey Konsumen":
         survey_edit_page(is_admin=is_admin)
     elif survey_menu == "Monitoring Survey" and is_admin:
         survey_monitoring_page()
+
+elif menu == "Dashboard Pencapaian (Leaderboard)":
+    achievement_leaderboard_page(load_data(), locked_promoter=None if is_admin else logged_promoter)
 
 elif menu == "Rekapitulasi Harian & Mingguan (Report Table)":
     recap_page(load_data(), locked_promoter=None if is_admin else logged_promoter)
