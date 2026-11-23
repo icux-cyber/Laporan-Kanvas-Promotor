@@ -1280,8 +1280,9 @@ def consumer_survey_entry_page(locked_promoter=None):
     st.markdown("---")
     st.markdown("#### 🛒 Kesimpulan Pengisian Respon: Keputusan Pembelian, Minat Beli & Jangka Panjang")
     keputusan_choice = st.radio(
-        "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu",
+        "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu *",
         SURVEY_PURCHASE_DECISION_OPTIONS,
+        index=None,
         horizontal=True,
         key=f"survey_keputusan_beli_{version}",
     )
@@ -1293,17 +1294,19 @@ def consumer_survey_entry_page(locked_promoter=None):
         ).strip()
         faktor_keputusan_beli = keputusan_custom or "Lainnya"
     else:
-        faktor_keputusan_beli = keputusan_choice
+        faktor_keputusan_beli = keputusan_choice or ""
 
     bersedia_beli_warung = st.radio(
-        "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket?",
+        "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket? *",
         SURVEY_BUY_WARUNG_OPTIONS,
+        index=None,
         horizontal=True,
         key=f"survey_bersedia_beli_warung_{version}",
     )
     beralih_jangka_panjang = st.radio(
-        "Apakah setelah mencoba Anda akan beralih mengkonsumsi rokok ini dalam jangka panjang?",
+        "Apakah setelah mencoba Anda akan beralih mengkonsumsi rokok ini dalam jangka panjang? *",
         SURVEY_LONG_TERM_OPTIONS,
+        index=None,
         horizontal=True,
         key=f"survey_beralih_jangka_panjang_{version}",
     )
@@ -1330,12 +1333,18 @@ def consumer_survey_entry_page(locked_promoter=None):
             missing_fields.append("BUMO Rokok Konsumen")
         if tahu_76_aksara == "Ya" and not sumber_info_list:
             missing_fields.append("Sumber Info Djarum 76 Aksara")
-        if keputusan_choice == "Lainnya" and not str(keputusan_custom or "").strip():
+        if not str(keputusan_choice or "").strip():
+            missing_fields.append("Faktor Keputusan Pembelian")
+        elif keputusan_choice == "Lainnya" and not str(keputusan_custom or "").strip():
             missing_fields.append("Hal yang Mempengaruhi Keputusan Pembelian (Lainnya)")
+        if not str(bersedia_beli_warung or "").strip():
+            missing_fields.append("Bersedia Beli di Warung/Toko/Minimarket")
+        if not str(beralih_jangka_panjang or "").strip():
+            missing_fields.append("Beralih Konsumsi Jangka Panjang")
 
         if missing_fields:
             st.error(
-                "⚠️ Mohon lengkapi seluruh data profil konsumen yang wajib diisi: "
+                "⚠️ Mohon lengkapi seluruh data profil konsumen dan kesimpulan respon yang wajib diisi: "
                 + ", ".join(f"**{field}**" for field in missing_fields)
                 + "."
             )
