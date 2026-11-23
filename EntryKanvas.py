@@ -2309,7 +2309,7 @@ def _render_podium_cards(df_rank, entity_col, subtitle_col=None, columns=3, comp
     medals = {1: "🥇 JUARA 1", 2: "🥈 JUARA 2", 3: "🥉 JUARA 3"}
     grid_class = " cols-3" if columns == 3 else ""
     compact_class = " compact" if compact else ""
-    cards_html = [f'<div class="leaderboard-podium{grid_class}">']
+    parts = [f'<div class="leaderboard-podium{grid_class}">']
     for _, r in top3.iterrows():
         rk = int(r["Rank"])
         rk_class = f" rank-{rk}" if rk in (1, 2, 3) else ""
@@ -2321,32 +2321,30 @@ def _render_podium_cards(df_rank, entity_col, subtitle_col=None, columns=3, comp
             else f"{r['Jumlah Tim / Promotor']} Promotor • Skor: {r['Skor Leaderboard']}"
         )
         if compact:
-            stats_html = f"""
-                <div><span class="podium-stat-label">Plan</span><span class="podium-stat-val">{r['Realisasi Plan (%)']}%</span></div>
-                <div><span class="podium-stat-label">Omset</span><span class="podium-stat-val">{int(r['Omset (Bungkus)']):,}</span></div>
-                <div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r['% EC']}%</span></div>
-            """
+            stats_html = (
+                f'<div><span class="podium-stat-label">Plan</span><span class="podium-stat-val">{r["Realisasi Plan (%)"]}%</span></div>'
+                f'<div><span class="podium-stat-label">Omset</span><span class="podium-stat-val">{int(r["Omset (Bungkus)"]):,}</span></div>'
+                f'<div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r["% EC"]}%</span></div>'
+            )
         else:
-            stats_html = f"""
-                <div><span class="podium-stat-label">Realisasi Plan</span><span class="podium-stat-val">{r['Realisasi Plan (%)']}%</span></div>
-                <div><span class="podium-stat-label">Omset (Bks)</span><span class="podium-stat-val">{int(r['Omset (Bungkus)']):,}</span></div>
-                <div><span class="podium-stat-label">Avg Dropsize</span><span class="podium-stat-val">{r['Avg Dropsize']}</span></div>
-                <div><span class="podium-stat-label">% Avail Sesudah</span><span class="podium-stat-val">{r['% Availability Sesudah']}%</span></div>
-                <div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r['% EC']}%</span></div>
-                <div><span class="podium-stat-label">% Outlet Ecer</span><span class="podium-stat-val">{r['% Outlet Ecer']}%</span></div>
-            """
-        cards_html.append(f"""
-        <div class="podium-card{rk_class}{compact_class}">
-            <div class="podium-rank">{badge}</div>
-            <div class="podium-title">{name_txt}</div>
-            <div class="podium-sub">{sub_txt}</div>
-            <div class="podium-stat-grid">
-                {stats_html}
-            </div>
-        </div>
-        """)
-    cards_html.append("</div>")
-    st.markdown("".join(cards_html), unsafe_allow_html=True)
+            stats_html = (
+                f'<div><span class="podium-stat-label">Realisasi Plan</span><span class="podium-stat-val">{r["Realisasi Plan (%)"]}%</span></div>'
+                f'<div><span class="podium-stat-label">Omset (Bks)</span><span class="podium-stat-val">{int(r["Omset (Bungkus)"]):,}</span></div>'
+                f'<div><span class="podium-stat-label">Avg Dropsize</span><span class="podium-stat-val">{r["Avg Dropsize"]}</span></div>'
+                f'<div><span class="podium-stat-label">% Avail Sesudah</span><span class="podium-stat-val">{r["% Availability Sesudah"]}%</span></div>'
+                f'<div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r["% EC"]}%</span></div>'
+                f'<div><span class="podium-stat-label">% Outlet Ecer</span><span class="podium-stat-val">{r["% Outlet Ecer"]}%</span></div>'
+            )
+        parts.append(
+            f'<div class="podium-card{rk_class}{compact_class}">'
+            f'<div class="podium-rank">{badge}</div>'
+            f'<div class="podium-title">{name_txt}</div>'
+            f'<div class="podium-sub">{sub_txt}</div>'
+            f'<div class="podium-stat-grid">{stats_html}</div>'
+            f'</div>'
+        )
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
 
 
 def _render_metric_chart(df_rank, entity_col, metric_col, title, is_pct=False):
