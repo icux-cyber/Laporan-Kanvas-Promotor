@@ -74,8 +74,8 @@ FIELD_LABELS = {
     "omset_bungkus": "Omset (Bungkus)",
     "promsus_10_1": "Promsus 10+1",
     "promsus_2_1": "Promsus 2+1",
-    "promsus_1_1": "Promsus 1+1",
     "promsus_3_1": "Promsus 3+1",
+    "promsus_1_1": "Promsus 1+1",
     "promsus_n_mie_instan": "N+ Mie Instan",
     "outlet_buka_ecer": "Outlet Buka Ecer",
     "jumlah_rokok_sampling": "Jumlah Rokok Sampling",
@@ -465,10 +465,10 @@ def init_db():
             zona TEXT, brand TEXT, canvas_plan INTEGER, outlet_beli_ada INTEGER,
             outlet_ks_tb INTEGER, outlet_ks_b INTEGER, outlet_tb_ada_a INTEGER,
             outlet_tb_ada_p INTEGER, outlet_tb_ks INTEGER, omset_bungkus INTEGER,
-            promsus_10_1 INTEGER DEFAULT 0, promsus_3_1 INTEGER DEFAULT 0,
-            promsus_2_1 INTEGER DEFAULT 0, promsus_1_1 INTEGER DEFAULT 0,
-            promsus_n_mie_instan INTEGER DEFAULT 0, outlet_buka_ecer INTEGER DEFAULT 0,
-            jumlah_rokok_sampling INTEGER DEFAULT 0, jumlah_konsumen_trial INTEGER DEFAULT 0,
+            promsus_10_1 INTEGER DEFAULT 0, promsus_1_1 INTEGER DEFAULT 0,
+            jumlah_rokok_sampling INTEGER DEFAULT 0, promsus_3_1 INTEGER DEFAULT 0,
+            promsus_n_mie_instan INTEGER DEFAULT 0, jumlah_konsumen_trial INTEGER DEFAULT 0,
+            promsus_2_1 INTEGER DEFAULT 0, outlet_buka_ecer INTEGER DEFAULT 0,
             direct_selling INTEGER DEFAULT 0, waktu_submit TEXT
         )""")
         conn.execute("""CREATE TABLE IF NOT EXISTS survey_konsumen (
