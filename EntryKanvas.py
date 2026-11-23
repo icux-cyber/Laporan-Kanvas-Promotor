@@ -114,6 +114,13 @@ SURVEY_JOB_OPTIONS = [
     "Wirausaha",
     "Lainnya",
 ]
+SURVEY_PURCHASE_DECISION_OPTIONS = [
+    "Rasa",
+    "Harga",
+    "Lingkungan / Teman",
+    "Brand / Image",
+    "Lainnya",
+]
 SURVEY_ASPECTS = ["Rasa", "Aroma", "Hisapan", "Harga", "Kemasan", "Lainnya"]
 SURVEY_AWARENESS_SOURCES = [
     "Papan Reklame",
@@ -128,6 +135,7 @@ SURVEY_LONG_TERM_OPTIONS = [
     "Tidak Sama sekali",
 ]
 SURVEY_EXTRA_FIELDS = {
+    "Faktor Keputusan Pembelian": "faktor_keputusan_beli",
     "Bersedia Beli di Warung/Toko/Minimarket": "bersedia_beli_warung",
     "Beralih Konsumsi Jangka Panjang": "beralih_jangka_panjang",
 }
@@ -487,7 +495,7 @@ def init_db():
             nama_promotor TEXT NOT NULL, sektor_survey TEXT, nama_konsumen TEXT,
             range_usia_konsumen TEXT, pekerjaan_konsumen TEXT,
             bumo_rokok_konsumen TEXT, tahu_76_aksara TEXT, sumber_info_76_aksara TEXT,
-            bersedia_beli_warung TEXT, beralih_jangka_panjang TEXT,
+            faktor_keputusan_beli TEXT, bersedia_beli_warung TEXT, beralih_jangka_panjang TEXT,
             komentar_positif TEXT, komentar_negatif TEXT
         )""")
 
@@ -1123,7 +1131,23 @@ def consumer_survey_entry_page(locked_promoter=None):
     else:
         sumber_info_str = ""
 
-    st.markdown("#### 🛒 Minat Pembelian & Jangka Panjang Setelah Mencoba")
+    st.markdown("#### 🛒 Keputusan Pembelian, Minat Beli & Jangka Panjang")
+    keputusan_choice = st.radio(
+        "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu",
+        SURVEY_PURCHASE_DECISION_OPTIONS,
+        horizontal=True,
+        key=f"survey_keputusan_beli_{version}",
+    )
+    if keputusan_choice == "Lainnya":
+        keputusan_custom = st.text_input(
+            "Tuliskan Hal yang Mempengaruhi Keputusan Pembelian (Lainnya)",
+            placeholder="Contoh: Ketersediaan di warung, promo, dll...",
+            key=f"survey_keputusan_beli_other_{version}",
+        ).strip()
+        faktor_keputusan_beli = keputusan_custom or "Lainnya"
+    else:
+        faktor_keputusan_beli = keputusan_choice
+
     bersedia_beli_warung = st.radio(
         "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket?",
         SURVEY_BUY_WARUNG_OPTIONS,
@@ -1173,7 +1197,7 @@ def consumer_survey_entry_page(locked_promoter=None):
             nama_promotor, sektor_survey.strip(), nama_konsumen.strip(),
             range_usia, pekerjaan.strip(), bumo,
             tahu_76_aksara, sumber_info_str,
-            bersedia_beli_warung, beralih_jangka_panjang,
+            faktor_keputusan_beli, bersedia_beli_warung, beralih_jangka_panjang,
             *[feedback[column].strip() for column in SURVEY_FEEDBACK_FIELDS.values()],
         ]
         with _get_db_connection() as conn:
@@ -1251,6 +1275,14 @@ def survey_edit_page(is_admin=False):
         item.strip() for item in raw_sumber.split(",")
         if item.strip() in SURVEY_AWARENESS_SOURCES
     ]
+
+    decision_col_label = "Faktor Keputusan Pembelian"
+    current_decision = str(row[decision_col_label] or "").strip()
+    is_custom_decision = bool(current_decision) and current_decision not in SURVEY_PURCHASE_DECISION_OPTIONS
+    default_decision_choice = (
+        "Lainnya" if is_custom_decision
+        else (current_decision if current_decision in SURVEY_PURCHASE_DECISION_OPTIONS else SURVEY_PURCHASE_DECISION_OPTIONS[0])
+    )
 
     buy_col_label = "Bersedia Beli di Warung/Toko/Minimarket"
     current_buy = str(row[buy_col_label] or "").strip()
@@ -1355,7 +1387,24 @@ def survey_edit_page(is_admin=False):
     else:
         edit_sumber_str = ""
 
-    st.markdown("#### 🛒 Minat Pembelian & Jangka Panjang Setelah Mencoba")
+    st.markdown("#### 🛒 Keputusan Pembelian, Minat Beli & Jangka Panjang")
+    edit_decision_choice = st.radio(
+        "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu",
+        SURVEY_PURCHASE_DECISION_OPTIONS,
+        index=SURVEY_PURCHASE_DECISION_OPTIONS.index(default_decision_choice),
+        horizontal=True,
+        key=f"edit_survey_keputusan_{selected_id}",
+    )
+    if edit_decision_choice == "Lainnya":
+        edit_decision_other = st.text_input(
+            "Tuliskan Hal yang Mempengaruhi Keputusan Pembelian (Lainnya)",
+            value=current_decision if is_custom_decision else "",
+            key=f"edit_survey_keputusan_other_{selected_id}",
+        ).strip()
+        edit_decision = edit_decision_other or "Lainnya"
+    else:
+        edit_decision = edit_decision_choice
+
     edit_buy = st.radio(
         "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket?",
         buy_options,
@@ -1424,6 +1473,7 @@ def survey_edit_page(is_admin=False):
             edit_bumo,
             edit_tahu,
             edit_sumber_str,
+            edit_decision,
             edit_buy,
             edit_long,
             *[feedback[col].strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
@@ -1811,6 +1861,28 @@ def survey_monitoring_page():
     metrics[0].metric("Total Konsumen Survey", len(survey_df))
     metrics[1].metric("Komentar Positif", sum(positive_counts))
     metrics[2].metric("Komentar Negatif", sum(negative_counts))
+
+    st.markdown("---")
+    st.subheader("🧭 Faktor yang Mempengaruhi Keputusan Pembelian Rokok")
+    decision_col = "Faktor Keputusan Pembelian"
+    decision_series = survey_df[decision_col].fillna("").astype(str).str.strip().replace("", "Tidak Diisi")
+    decision_counts = decision_series.value_counts()
+    ordered_decisions = [opt for opt in SURVEY_PURCHASE_DECISION_OPTIONS if opt in decision_counts.index]
+    ordered_decisions.extend(sorted(opt for opt in decision_counts.index if opt not in SURVEY_PURCHASE_DECISION_OPTIONS))
+    decision_counts = decision_counts.reindex(ordered_decisions)
+    decision_palette = ["#2563eb", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899", "#94a3b8"]
+    decision_colors = [decision_palette[i % len(decision_palette)] for i in range(len(decision_counts))]
+    top_decision = decision_counts.index[0] if not decision_counts.empty else "-"
+    top_decision_val = int(decision_counts.iloc[0]) if not decision_counts.empty else 0
+    _render_donut_with_center_kpi(
+        values=decision_counts.values.tolist(),
+        labels=decision_counts.index.tolist(),
+        title="Sebaran Hal yang Mempengaruhi Keputusan Pembelian",
+        kpi_value=f"{top_decision_val}/{int(decision_counts.sum())}",
+        kpi_sublabel=f"Terbanyak: {top_decision}",
+        colors=decision_colors,
+        figsize=(7.8, 5.4),
+    )
 
     st.markdown("---")
     st.subheader("🛒 Kesediaan Membeli di Warung/Toko/Minimarket & Beralih Jangka Panjang")
