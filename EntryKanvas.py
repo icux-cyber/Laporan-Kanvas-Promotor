@@ -890,22 +890,18 @@ def report_form(locked_promoter=None):
 
         st.markdown("#### 🏪 Rincian Outlet")
         outlet_values = {}
-        outlet_columns = st.columns(3)
-        for index, key in enumerate(OUTLET_KEYS):
-            with outlet_columns[index % 3]:
-                outlet_values[key] = int(st.number_input(
-                    FIELD_LABELS[key], min_value=0, step=1, value=0,
-                    key=f"entry_{key}_{version}",
-                ))
+        for key in OUTLET_KEYS:
+            outlet_values[key] = int(st.number_input(
+                FIELD_LABELS[key], min_value=0, step=1, value=0,
+                key=f"entry_{key}_{version}",
+            ))
         st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
         promotion_values = {}
-        promotion_columns = st.columns(3)
-        for index, key in enumerate(PROMOTION_KEYS):
-            with promotion_columns[index % 3]:
-                promotion_values[key] = int(st.number_input(
-                    FIELD_LABELS[key], min_value=0, step=1, value=0,
-                    key=f"entry_{key}_{version}",
-                ))
+        for key in PROMOTION_KEYS:
+            promotion_values[key] = int(st.number_input(
+                FIELD_LABELS[key], min_value=0, step=1, value=0,
+                key=f"entry_{key}_{version}",
+            ))
         b1, b2 = st.columns(2)
         with b1:
             preview = st.form_submit_button("👁️ Lihat Preview", type="secondary")
@@ -1971,15 +1967,11 @@ def management_page(df, today, is_admin=True, locked_promoter=None):
                 "omset_bungkus": st.number_input("Omset (bungkus)", min_value=0, step=1, value=int(row["Omset (Bungkus)"] or 0)),
             }
         st.markdown("#### 🏪 Rincian Outlet")
-        edit_cols = st.columns(3)
-        for index, key in enumerate(OUTLET_KEYS):
-            with edit_cols[index % 3]:
-                edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
+        for key in OUTLET_KEYS:
+            edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
         st.markdown("#### 🎁 Rincian Promosi dan Aktivitas")
-        promo_cols = st.columns(3)
-        for index, key in enumerate(PROMOTION_KEYS):
-            with promo_cols[index % 3]:
-                edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
+        for key in PROMOTION_KEYS:
+            edit_values[key] = st.number_input(FIELD_LABELS[key], min_value=0, step=1, value=int(row[FIELD_LABELS[key]] or 0), key=f"edit_{selected_id}_{key}")
         update = st.form_submit_button("💾 Perbarui Data", type="primary")
     if update:
         columns = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS]
