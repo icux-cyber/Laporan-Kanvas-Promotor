@@ -1197,6 +1197,262 @@ def consumer_survey_entry_page(locked_promoter=None):
         st.rerun()
 
 
+def survey_edit_page(is_admin=False):
+    if not is_admin:
+        st.error("⛔ Menu **Edit Log Survey Konsumen** hanya tersedia untuk **Admin**.")
+        return
+
+    st.markdown("""
+    <div class="hero-header">
+        <div class="hero-badge">Admin Only • Voice of Customer</div>
+        <h1>✏️ Edit Log Survey Konsumen</h1>
+        <p>Koreksi dan perbarui data log survey konsumen yang tersimpan di database & Google Sheets.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    survey_df = load_survey_data()
+    if survey_df.empty:
+        st.info("📭 Belum ada data log survey konsumen yang dapat di-edit.")
+        return
+
+    selected_id = st.selectbox(
+        "Pilih Log Survey yang Akan Di-edit:",
+        survey_df["ID"].tolist(),
+        format_func=lambda value: (
+            f"ID #{value} — {survey_df.loc[survey_df['ID'] == value, 'Nama Konsumen'].iloc[0] or 'Tanpa Nama'} "
+            f"— {survey_df.loc[survey_df['ID'] == value, 'Nama Promotor'].iloc[0] or 'Tanpa Promotor'} "
+            f"({survey_df.loc[survey_df['ID'] == value, 'Waktu Survey'].iloc[0]})"
+        ),
+        key="edit_survey_select_id",
+    )
+
+    row = survey_df[survey_df["ID"] == selected_id].iloc[0]
+    st.markdown("##### Data Survey Sebelumnya")
+    st.dataframe(row.to_frame().T, use_container_width=True, hide_index=True)
+
+    bumo_options, _, _ = load_bumo_options()
+    current_bumo = str(row["BUMO Rokok Konsumen"] or "").strip()
+    is_custom_bumo = bool(current_bumo) and current_bumo not in bumo_options
+    default_bumo_choice = "Lainnya" if is_custom_bumo else (current_bumo if current_bumo in bumo_options else "")
+
+    current_job = str(row["Pekerjaan Konsumen"] or "").strip()
+    is_custom_job = bool(current_job) and current_job not in SURVEY_JOB_OPTIONS
+    default_job_choice = "Lainnya" if is_custom_job else (current_job if current_job in SURVEY_JOB_OPTIONS else "")
+
+    current_age = str(row["Range Umur Konsumen"] or "").strip()
+    age_options = list(SURVEY_AGE_RANGES)
+    if current_age and current_age not in age_options:
+        age_options.append(current_age)
+    default_age_idx = age_options.index(current_age) if current_age in age_options else 0
+
+    current_tahu = "Ya" if str(row["Mengetahui Djarum 76 Aksara"] or "").strip() == "Ya" else "Tidak"
+    raw_sumber = str(row["Sumber Info Djarum 76 Aksara"] or "").strip()
+    default_sumber = [
+        item.strip() for item in raw_sumber.split(",")
+        if item.strip() in SURVEY_AWARENESS_SOURCES
+    ]
+
+    buy_col_label = "Bersedia Beli di Warung/Toko/Minimarket"
+    current_buy = str(row[buy_col_label] or "").strip()
+    buy_options = list(SURVEY_BUY_WARUNG_OPTIONS)
+    if current_buy and current_buy not in buy_options:
+        buy_options.append(current_buy)
+    default_buy_idx = buy_options.index(current_buy) if current_buy in buy_options else 0
+
+    long_col_label = "Beralih Konsumsi Jangka Panjang"
+    current_long = str(row[long_col_label] or "").strip()
+    long_options = list(SURVEY_LONG_TERM_OPTIONS)
+    if current_long and current_long not in long_options:
+        long_options.append(current_long)
+    default_long_idx = long_options.index(current_long) if current_long in long_options else 0
+
+    st.markdown("##### Form Edit Log Survey Konsumen")
+    c_id1, c_id2 = st.columns(2)
+    with c_id1:
+        promoter_options = [""] + list(PROMOTOR_ZONA)
+        current_promotor = str(row["Nama Promotor"] or "").strip()
+        if current_promotor and current_promotor not in promoter_options:
+            promoter_options.append(current_promotor)
+        edit_promotor = st.selectbox(
+            "Nama Promotor",
+            promoter_options,
+            index=promoter_options.index(current_promotor) if current_promotor in promoter_options else 0,
+            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            key=f"edit_survey_promotor_{selected_id}",
+        )
+        edit_waktu = st.text_input(
+            "Waktu Survey",
+            value=str(row["Waktu Survey"] or ""),
+            key=f"edit_survey_waktu_{selected_id}",
+        )
+        edit_sektor = st.text_input(
+            "Sektor Survey",
+            value=str(row["Sektor Survey"] or ""),
+            key=f"edit_survey_sektor_{selected_id}",
+        )
+        edit_konsumen = st.text_input(
+            "Nama Konsumen",
+            value=str(row["Nama Konsumen"] or ""),
+            key=f"edit_survey_konsumen_{selected_id}",
+        )
+    with c_id2:
+        edit_usia = st.selectbox(
+            "Range Umur Konsumen",
+            age_options,
+            index=default_age_idx,
+            key=f"edit_survey_usia_{selected_id}",
+        )
+        edit_job_choice = st.selectbox(
+            "Pekerjaan Konsumen",
+            SURVEY_JOB_OPTIONS,
+            index=SURVEY_JOB_OPTIONS.index(default_job_choice),
+            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            key=f"edit_survey_job_choice_{selected_id}",
+        )
+        if edit_job_choice == "Lainnya":
+            edit_job_other = st.text_input(
+                "Tuliskan Pekerjaan Konsumen (Lainnya)",
+                value=current_job if is_custom_job else "",
+                key=f"edit_survey_job_other_{selected_id}",
+            ).strip()
+            edit_job = edit_job_other or "Lainnya"
+        else:
+            edit_job = edit_job_choice
+
+        edit_bumo_choice = st.selectbox(
+            "BUMO Rokok Konsumen",
+            bumo_options,
+            index=bumo_options.index(default_bumo_choice),
+            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            key=f"edit_survey_bumo_choice_{selected_id}",
+        )
+        if edit_bumo_choice == "Lainnya":
+            edit_bumo_other = st.text_input(
+                "Tuliskan BUMO Rokok Konsumen (Lainnya)",
+                value=current_bumo if is_custom_bumo else "",
+                key=f"edit_survey_bumo_other_{selected_id}",
+            ).strip()
+            edit_bumo = edit_bumo_other or "Lainnya"
+        else:
+            edit_bumo = edit_bumo_choice
+
+    st.markdown("#### 📢 Awareness Djarum 76 Aksara")
+    edit_tahu = st.radio(
+        "Apakah anda pernah mengetahui Djarum 76 Aksara?",
+        ["Tidak", "Ya"],
+        index=1 if current_tahu == "Ya" else 0,
+        horizontal=True,
+        key=f"edit_survey_tahu_{selected_id}",
+    )
+    if edit_tahu == "Ya":
+        edit_sumber_list = st.multiselect(
+            "Kalau iya melihatnya dari mana?",
+            SURVEY_AWARENESS_SOURCES,
+            default=default_sumber,
+            key=f"edit_survey_sumber_{selected_id}",
+        )
+        edit_sumber_str = ", ".join(edit_sumber_list)
+    else:
+        edit_sumber_str = ""
+
+    st.markdown("#### 🛒 Minat Pembelian & Jangka Panjang Setelah Mencoba")
+    edit_buy = st.radio(
+        "Setelah mencoba apakah anda bersedia membeli di Warung/Toko/Minimarket?",
+        buy_options,
+        index=default_buy_idx,
+        horizontal=True,
+        key=f"edit_survey_buy_{selected_id}",
+    )
+    edit_long = st.radio(
+        "Apakah setelah mencoba Anda akan beralih mengkonsumsi rokok ini dalam jangka panjang?",
+        long_options,
+        index=default_long_idx,
+        horizontal=True,
+        key=f"edit_survey_long_{selected_id}",
+    )
+
+    with st.form(f"form_edit_survey_konsumen_{selected_id}"):
+        edited_pos = {}
+        edited_neg = {}
+        pos_col, neg_col = st.columns(2)
+        with pos_col:
+            st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba")
+            for aspect in SURVEY_ASPECTS:
+                label = f"Komentar Positif - {aspect}"
+                db_col = SURVEY_FEEDBACK_FIELDS[label]
+                edited_pos[db_col] = st.text_area(
+                    label,
+                    value=str(row[label] or ""),
+                    key=f"edit_survey_pos_{selected_id}_{db_col}",
+                )
+        with neg_col:
+            st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba")
+            for aspect in SURVEY_ASPECTS:
+                label = f"Komentar Negatif - {aspect}"
+                db_col = SURVEY_FEEDBACK_FIELDS[label]
+                edited_neg[db_col] = st.text_area(
+                    label,
+                    value=str(row[label] or ""),
+                    key=f"edit_survey_neg_{selected_id}_{db_col}",
+                )
+
+        save_edit = st.form_submit_button("💾 Simpan Perubahan Survey", type="primary")
+
+    if save_edit:
+        feedback = {**edited_pos, **edited_neg}
+        update_cols = [
+            "waktu_survey",
+            "nama_promotor",
+            "sektor_survey",
+            "nama_konsumen",
+            "range_usia_konsumen",
+            "pekerjaan_konsumen",
+            "bumo_rokok_konsumen",
+            "tahu_76_aksara",
+            "sumber_info_76_aksara",
+            *SURVEY_EXTRA_FIELDS.values(),
+            *SURVEY_FEEDBACK_FIELDS.values(),
+        ]
+        waktu_final = edit_waktu.strip() or str(row["Waktu Survey"] or datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S"))
+        update_vals = [
+            waktu_final,
+            edit_promotor.strip(),
+            edit_sektor.strip(),
+            edit_konsumen.strip(),
+            edit_usia,
+            edit_job.strip(),
+            edit_bumo,
+            edit_tahu,
+            edit_sumber_str,
+            edit_buy,
+            edit_long,
+            *[feedback[col].strip() for col in SURVEY_FEEDBACK_FIELDS.values()],
+        ]
+
+        with _get_db_connection() as conn:
+            conn.execute(
+                f"UPDATE survey_konsumen SET {', '.join(f'{col} = ?' for col in update_cols)} WHERE id = ?",
+                [*update_vals, int(selected_id)],
+            )
+        _invalidate_data_caches()
+
+        updated_survey = {
+            "id": int(selected_id),
+            **dict(zip(update_cols, update_vals)),
+        }
+        try:
+            sync_survey_to_sheets("upsert", updated_survey)
+        except RuntimeError as error:
+            st.session_state["notifikasi_error"] = (
+                f"Log survey ID #{selected_id} diperbarui di lokal, tetapi gagal sync ke Google Sheets: {error}"
+            )
+        else:
+            st.session_state["notifikasi_sukses"] = (
+                f"✏️ Log survey ID #{selected_id} berhasil diperbarui di lokal & Google Sheets!"
+            )
+        st.rerun()
+
+
 def survey_log_page(is_admin=False, locked_promoter=None):
     st.title("📋 Log Entry Survey Konsumen")
     survey_df = load_survey_data()
@@ -2120,7 +2376,7 @@ if is_admin:
     if st.session_state["active_page"] == "Survey Konsumen":
         survey_menu = st.sidebar.radio(
             "Sub-Menu Survey:",
-            ["Entry Survey", "Log Entry Survey", "Monitoring Survey"],
+            ["Entry Survey", "Log Entry Survey", "Edit Log Survey", "Monitoring Survey"],
             key="survey_navigation_admin",
         )
         menu = "Survey Konsumen"
@@ -2191,6 +2447,8 @@ elif menu == "Survey Konsumen":
         consumer_survey_entry_page(locked_promoter=None if is_admin else logged_promoter)
     elif survey_menu == "Log Entry Survey":
         survey_log_page(is_admin=is_admin, locked_promoter=None if is_admin else logged_promoter)
+    elif survey_menu == "Edit Log Survey" and is_admin:
+        survey_edit_page(is_admin=is_admin)
     elif survey_menu == "Monitoring Survey" and is_admin:
         survey_monitoring_page()
 
