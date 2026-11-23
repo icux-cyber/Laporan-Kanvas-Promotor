@@ -1075,17 +1075,17 @@ def consumer_survey_entry_page(locked_promoter=None):
                 format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
                 key=f"survey_promoter_{version}",
             )
-        sektor_survey = st.text_input("Sektor Survey", key=f"survey_sector_{version}")
-        nama_konsumen = st.text_input("Nama Konsumen", key=f"survey_consumer_{version}")
+        sektor_survey = st.text_input("Sektor Survey *", placeholder="Wajib diisi...", key=f"survey_sector_{version}")
+        nama_konsumen = st.text_input("Nama Konsumen *", placeholder="Wajib diisi...", key=f"survey_consumer_{version}")
     with c_id2:
         range_usia = st.selectbox(
-            "Range Umur Konsumen", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
+            "Range Umur Konsumen *", SURVEY_AGE_RANGES, key=f"survey_age_{version}",
         )
         pekerjaan_choice = st.selectbox(
-            "Pekerjaan Konsumen",
+            "Pekerjaan Konsumen *",
             SURVEY_JOB_OPTIONS,
             index=0,
-            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            format_func=lambda value: "-- Pilih Pekerjaan (Wajib) --" if value == "" else value,
             key=f"survey_job_{version}",
         )
         if pekerjaan_choice == "Lainnya":
@@ -1098,10 +1098,10 @@ def consumer_survey_entry_page(locked_promoter=None):
         else:
             pekerjaan = pekerjaan_choice
         bumo_choice = st.selectbox(
-            "BUMO Rokok Konsumen",
+            "BUMO Rokok Konsumen *",
             bumo_options,
             index=0,
-            format_func=lambda value: "-- Belum dipilih / Kosong --" if value == "" else value,
+            format_func=lambda value: "-- Pilih BUMO Rokok (Wajib) --" if value == "" else value,
             key=f"survey_bumo_{version}",
         )
         if bumo_choice == "Lainnya":
@@ -1131,7 +1131,28 @@ def consumer_survey_entry_page(locked_promoter=None):
     else:
         sumber_info_str = ""
 
-    st.markdown("#### 🛒 Keputusan Pembelian, Minat Beli & Jangka Panjang")
+    positive_comments = {}
+    negative_comments = {}
+    positive_column, negative_column = st.columns(2)
+    with positive_column:
+        st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba *(Opsional)*")
+        for aspect in SURVEY_ASPECTS:
+            label = f"Komentar Positif - {aspect}"
+            key = SURVEY_FEEDBACK_FIELDS[label]
+            positive_comments[key] = st.text_area(
+                label, key=f"survey_{key}_{version}",
+            )
+    with negative_column:
+        st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba *(Opsional)*")
+        for aspect in SURVEY_ASPECTS:
+            label = f"Komentar Negatif - {aspect}"
+            key = SURVEY_FEEDBACK_FIELDS[label]
+            negative_comments[key] = st.text_area(
+                label, key=f"survey_{key}_{version}",
+            )
+
+    st.markdown("---")
+    st.markdown("#### 🛒 Kesimpulan Pengisian Respon: Keputusan Pembelian, Minat Beli & Jangka Panjang")
     keputusan_choice = st.radio(
         "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu",
         SURVEY_PURCHASE_DECISION_OPTIONS,
@@ -1161,29 +1182,39 @@ def consumer_survey_entry_page(locked_promoter=None):
         key=f"survey_beralih_jangka_panjang_{version}",
     )
 
-    with st.form(f"form_survey_konsumen_{version}"):
-        positive_comments = {}
-        negative_comments = {}
-        positive_column, negative_column = st.columns(2)
-        with positive_column:
-            st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba")
-            for aspect in SURVEY_ASPECTS:
-                label = f"Komentar Positif - {aspect}"
-                key = SURVEY_FEEDBACK_FIELDS[label]
-                positive_comments[key] = st.text_area(
-                    label, key=f"survey_{key}_{version}",
-                )
-        with negative_column:
-            st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba")
-            for aspect in SURVEY_ASPECTS:
-                label = f"Komentar Negatif - {aspect}"
-                key = SURVEY_FEEDBACK_FIELDS[label]
-                negative_comments[key] = st.text_area(
-                    label, key=f"survey_{key}_{version}",
-                )
-        submit = st.form_submit_button("💾 Simpan Survey", type="primary")
+    submit = st.button("💾 Simpan Survey", type="primary", key=f"btn_submit_survey_{version}")
 
     if submit:
+        missing_fields = []
+        if not str(nama_promotor or "").strip():
+            missing_fields.append("Nama Promotor")
+        if not str(sektor_survey or "").strip():
+            missing_fields.append("Sektor Survey")
+        if not str(nama_konsumen or "").strip():
+            missing_fields.append("Nama Konsumen")
+        if not str(range_usia or "").strip():
+            missing_fields.append("Range Umur Konsumen")
+        if not str(pekerjaan_choice or "").strip() or (
+            pekerjaan_choice == "Lainnya" and not str(pekerjaan_custom or "").strip()
+        ):
+            missing_fields.append("Pekerjaan Konsumen")
+        if not str(bumo_choice or "").strip() or (
+            bumo_choice == "Lainnya" and not str(bumo_custom or "").strip()
+        ):
+            missing_fields.append("BUMO Rokok Konsumen")
+        if tahu_76_aksara == "Ya" and not sumber_info_list:
+            missing_fields.append("Sumber Info Djarum 76 Aksara")
+        if keputusan_choice == "Lainnya" and not str(keputusan_custom or "").strip():
+            missing_fields.append("Hal yang Mempengaruhi Keputusan Pembelian (Lainnya)")
+
+        if missing_fields:
+            st.error(
+                "⚠️ Mohon lengkapi seluruh data profil konsumen yang wajib diisi: "
+                + ", ".join(f"**{field}**" for field in missing_fields)
+                + "."
+            )
+            st.stop()
+
         feedback = {**positive_comments, **negative_comments}
         columns = [
             "waktu_survey", "nama_promotor", "sektor_survey", "nama_konsumen",
@@ -1387,7 +1418,32 @@ def survey_edit_page(is_admin=False):
     else:
         edit_sumber_str = ""
 
-    st.markdown("#### 🛒 Keputusan Pembelian, Minat Beli & Jangka Panjang")
+    edited_pos = {}
+    edited_neg = {}
+    pos_col, neg_col = st.columns(2)
+    with pos_col:
+        st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba *(Opsional)*")
+        for aspect in SURVEY_ASPECTS:
+            label = f"Komentar Positif - {aspect}"
+            db_col = SURVEY_FEEDBACK_FIELDS[label]
+            edited_pos[db_col] = st.text_area(
+                label,
+                value=str(row[label] or ""),
+                key=f"edit_survey_pos_{selected_id}_{db_col}",
+            )
+    with neg_col:
+        st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba *(Opsional)*")
+        for aspect in SURVEY_ASPECTS:
+            label = f"Komentar Negatif - {aspect}"
+            db_col = SURVEY_FEEDBACK_FIELDS[label]
+            edited_neg[db_col] = st.text_area(
+                label,
+                value=str(row[label] or ""),
+                key=f"edit_survey_neg_{selected_id}_{db_col}",
+            )
+
+    st.markdown("---")
+    st.markdown("#### 🛒 Kesimpulan Pengisian Respon: Keputusan Pembelian, Minat Beli & Jangka Panjang")
     edit_decision_choice = st.radio(
         "Saat memilih dan membeli rokok, hal apa yang mempengaruhi keputusan pembelian anda. Pilih salah satu",
         SURVEY_PURCHASE_DECISION_OPTIONS,
@@ -1420,32 +1476,7 @@ def survey_edit_page(is_admin=False):
         key=f"edit_survey_long_{selected_id}",
     )
 
-    with st.form(f"form_edit_survey_konsumen_{selected_id}"):
-        edited_pos = {}
-        edited_neg = {}
-        pos_col, neg_col = st.columns(2)
-        with pos_col:
-            st.markdown("#### ✅ Komentar Positif dari Rokok yang Dicoba")
-            for aspect in SURVEY_ASPECTS:
-                label = f"Komentar Positif - {aspect}"
-                db_col = SURVEY_FEEDBACK_FIELDS[label]
-                edited_pos[db_col] = st.text_area(
-                    label,
-                    value=str(row[label] or ""),
-                    key=f"edit_survey_pos_{selected_id}_{db_col}",
-                )
-        with neg_col:
-            st.markdown("#### ⚠️ Komentar Negatif dari Rokok yang Dicoba")
-            for aspect in SURVEY_ASPECTS:
-                label = f"Komentar Negatif - {aspect}"
-                db_col = SURVEY_FEEDBACK_FIELDS[label]
-                edited_neg[db_col] = st.text_area(
-                    label,
-                    value=str(row[label] or ""),
-                    key=f"edit_survey_neg_{selected_id}_{db_col}",
-                )
-
-        save_edit = st.form_submit_button("💾 Simpan Perubahan Survey", type="primary")
+    save_edit = st.button("💾 Simpan Perubahan Survey", type="primary", key=f"btn_save_edit_survey_{selected_id}")
 
     if save_edit:
         feedback = {**edited_pos, **edited_neg}
