@@ -396,6 +396,41 @@ div[data-testid="stMetric"] {
     gap: 0.85rem;
     margin: 0.65rem 0 1.15rem 0;
 }
+.leaderboard-podium.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin: 0.5rem 0 0.9rem 0;
+}
+.podium-card.compact {
+    padding: 0.72rem 0.85rem;
+    border-radius: 12px;
+}
+.podium-card.compact .podium-rank {
+    font-size: 0.7rem;
+    padding: 0.14rem 0.5rem;
+    margin-bottom: 0.3rem;
+}
+.podium-card.compact .podium-title {
+    font-size: 0.96rem;
+    margin-bottom: 0.1rem;
+}
+.podium-card.compact .podium-sub {
+    font-size: 0.74rem;
+    margin-bottom: 0.45rem;
+}
+.podium-card.compact .podium-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.25rem 0.4rem;
+    font-size: 0.74rem;
+}
+.podium-card.compact .podium-stat-label {
+    font-size: 0.66rem;
+}
+@media (max-width: 768px) {
+    .leaderboard-podium.cols-3 {
+        grid-template-columns: 1fr;
+    }
+}
 .podium-card {
     background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
     border-radius: 14px;
@@ -2267,15 +2302,17 @@ def _compute_achievement_metrics(df, group_col):
     return res
 
 
-def _render_podium_cards(df_rank, entity_col, subtitle_col=None):
+def _render_podium_cards(df_rank, entity_col, subtitle_col=None, columns=3, compact=False):
     top3 = df_rank.head(3)
     if top3.empty:
         return
     medals = {1: "🥇 JUARA 1", 2: "🥈 JUARA 2", 3: "🥉 JUARA 3"}
-    cards_html = ['<div class="leaderboard-podium">']
+    grid_class = " cols-3" if columns == 3 else ""
+    compact_class = " compact" if compact else ""
+    cards_html = [f'<div class="leaderboard-podium{grid_class}">']
     for _, r in top3.iterrows():
         rk = int(r["Rank"])
-        rk_class = f"rank-{rk}" if rk in (1, 2, 3) else ""
+        rk_class = f" rank-{rk}" if rk in (1, 2, 3) else ""
         badge = medals.get(rk, f"#{rk}")
         name_txt = str(r[entity_col])
         sub_txt = (
@@ -2283,18 +2320,28 @@ def _render_podium_cards(df_rank, entity_col, subtitle_col=None):
             if subtitle_col and subtitle_col in r
             else f"{r['Jumlah Tim / Promotor']} Promotor • Skor: {r['Skor Leaderboard']}"
         )
-        cards_html.append(f"""
-        <div class="podium-card {rk_class}">
-            <div class="podium-rank">{badge}</div>
-            <div class="podium-title">{name_txt}</div>
-            <div class="podium-sub">{sub_txt}</div>
-            <div class="podium-stat-grid">
+        if compact:
+            stats_html = f"""
+                <div><span class="podium-stat-label">Plan</span><span class="podium-stat-val">{r['Realisasi Plan (%)']}%</span></div>
+                <div><span class="podium-stat-label">Omset</span><span class="podium-stat-val">{int(r['Omset (Bungkus)']):,}</span></div>
+                <div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r['% EC']}%</span></div>
+            """
+        else:
+            stats_html = f"""
                 <div><span class="podium-stat-label">Realisasi Plan</span><span class="podium-stat-val">{r['Realisasi Plan (%)']}%</span></div>
                 <div><span class="podium-stat-label">Omset (Bks)</span><span class="podium-stat-val">{int(r['Omset (Bungkus)']):,}</span></div>
                 <div><span class="podium-stat-label">Avg Dropsize</span><span class="podium-stat-val">{r['Avg Dropsize']}</span></div>
                 <div><span class="podium-stat-label">% Avail Sesudah</span><span class="podium-stat-val">{r['% Availability Sesudah']}%</span></div>
                 <div><span class="podium-stat-label">% EC</span><span class="podium-stat-val">{r['% EC']}%</span></div>
                 <div><span class="podium-stat-label">% Outlet Ecer</span><span class="podium-stat-val">{r['% Outlet Ecer']}%</span></div>
+            """
+        cards_html.append(f"""
+        <div class="podium-card{rk_class}{compact_class}">
+            <div class="podium-rank">{badge}</div>
+            <div class="podium-title">{name_txt}</div>
+            <div class="podium-sub">{sub_txt}</div>
+            <div class="podium-stat-grid">
+                {stats_html}
             </div>
         </div>
         """)
@@ -2492,7 +2539,7 @@ def achievement_leaderboard_page(df, locked_promoter=None):
             zona_df["Rank"] = range(1, len(zona_df) + 1)
 
             st.markdown("### 🏅 Top 3 Leaderboard Per Zona")
-            _render_podium_cards(zona_df, "Zona", subtitle_col=None)
+            _render_podium_cards(zona_df, "Zona", subtitle_col=None, columns=3, compact=True)
 
             z_plan = zona_df.sort_values("Realisasi Plan (%)", ascending=False).iloc[0]
             z_omset = zona_df.sort_values("Omset (Bungkus)", ascending=False).iloc[0]
