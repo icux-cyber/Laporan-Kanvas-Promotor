@@ -191,6 +191,30 @@ SURVEY_COLS = [
     *SURVEY_FEEDBACK_FIELDS.values(),
 ]
 
+EXCEL_TO_DB_MAP = {
+    "Tanggal Laporan": "tanggal",
+    "Nama Promotor": "nama_promotor",
+    "Zona": "zona",
+    "Brand": "brand",
+    "Canvas Plan": "canvas_plan",
+    "Omset (Bungkus)": "omset_bungkus",
+    "Outlet Beli Ada": "outlet_beli_ada",
+    "Outlet Ks Tb": "outlet_ks_tb",
+    "Outlet Ks B": "outlet_ks_b",
+    "Outlet TB Ada A": "outlet_tb_ada_a",
+    "Outlet TB Ada P": "outlet_tb_ada_p",
+    "Outlet TB Ks": "outlet_tb_ks",
+    "Promsus 5+1": "promsus_10_1",
+    "Promsus 3+1": "promsus_3_1",
+    "Promsus 2+1 Mie": "promsus_2_1",
+    "Promsus 1+1 Mie": "promsus_1_1",
+    "N+ Lain-lain": "promsus_n_mie_instan",
+    "Outlet Buka Ecer": "outlet_buka_ecer",
+    "Jumlah Rokok Sampling": "jumlah_rokok_sampling",
+    "Jumlah Konsumen Trial": "jumlah_konsumen_trial",
+    "Direct Selling": "direct_selling",
+}
+
 st.set_page_config(
     page_title="Sistem Kanvas & Survey — Djarum 76 Aksara",
     page_icon="📋",
@@ -2282,8 +2306,6 @@ def survey_monitoring_page():
     )
 
 
-
-
 def _compute_achievement_metrics(df, group_col):
     work = df.copy()
     for col in [
@@ -2355,7 +2377,6 @@ def _compute_achievement_metrics(df, group_col):
     if res.empty:
         return res
 
-    # Skor gabungan normalisasi untuk ranking umum leaderboard
     def _norm(series):
         s = series.astype(float)
         rng = float(s.max() - s.min())
@@ -2994,6 +3015,195 @@ def backup_restore_page(df):
             st.error(f"❌ Backup gagal: {err}")
 
 
+def parse_responses_excel(uploaded_file):
+    """Membaca file Excel Responses dan memetakan kolomnya ke format tabel kanvas."""
+    xls = pd.ExcelFile(uploaded_file)
+    sheet_name = "Responses" if "Responses" in xls.sheet_names else xls.sheet_names[0]
+    raw_df = pd.read_excel(xls, sheet_name=sheet_name)
+    raw_df.columns = [str(col).strip() for col in raw_df.columns]
+
+    required_cols = ["Tanggal Laporan", "Nama Promotor"]
+    missing_cols = [col for col in required_cols if col not in raw_df.columns]
+    if missing_cols:
+        raise ValueError(f"Kolom wajib tidak ditemukan di file Excel: {', '.join(missing_cols)}")
+
+    now_submit = datetime.now(TZ_WIB).strftime("%Y-%m-%d %H:%M:%S")
+    parsed_rows = []
+    skipped_empty = 0
+
+    for _, row in raw_df.iterrows():
+        raw_tgl = row.get("Tanggal Laporan")
+        promotor = str(row.get("Nama Promotor") or "").strip()
+
+        if pd.isna(raw_tgl) or not promotor or promotor.lower() == "nan":
+            skipped_empty += 1
+            continue
+
+        dt_val = pd.to_datetime(raw_tgl, errors="coerce")
+        if pd.isna(dt_val):
+            skipped_empty += 1
+            continue
+        tanggal_str = dt_val.strftime("%Y-%m-%d")
+
+        zona_excel = str(row.get("Zona") or "").strip()
+        zona_final = (
+            zona_excel
+            if zona_excel and zona_excel.lower() != "nan"
+            else PROMOTOR_ZONA.get(promotor, "-")
+        )
+
+        brand_excel = str(row.get("Brand") or "").strip()
+        brand_final = (
+            brand_excel
+            if brand_excel and brand_excel.lower() != "nan"
+            else "Djarum 76 Aksara"
+        )
+
+        record = {
+            "tanggal": tanggal_str,
+            "nama_promotor": promotor,
+            "zona": zona_final,
+            "brand": brand_final,
+            "waktu_submit": now_submit,
+        }
+
+        for excel_col, db_col in EXCEL_TO_DB_MAP.items():
+            if db_col in ("tanggal", "nama_promotor", "zona", "brand"):
+                continue
+            record[db_col] = _safe_int(row.get(excel_col), default=0)
+
+        parsed_rows.append(record)
+
+    return parsed_rows, sheet_name, skipped_empty
+
+
+def upload_responses_excel_page():
+    st.markdown("""
+    <div class="hero-header">
+        <div class="hero-badge">Import Data • Djarum 76 Aksara</div>
+        <h1>📤 Upload Responses Excel ke Database</h1>
+        <p>Unggah file Excel (Responses.xlsx) agar langsung terhubung ke Dashboard, Rekapitulasi, Log Kanvas, & Google Sheets.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader(
+        "Pilih File Excel (.xlsx)",
+        type=["xlsx", "xls"],
+        key="uploader_responses_excel",
+    )
+
+    if uploaded_file is None:
+        st.info("Silakan pilih file `Responses.xlsx` untuk melihat preview dan mengimpor data ke web app.")
+        return
+
+    try:
+        parsed_rows, used_sheet, skipped_empty = parse_responses_excel(uploaded_file)
+    except Exception as err:
+        st.error(f"❌ Gagal membaca file Excel: {err}")
+        return
+
+    if not parsed_rows:
+        st.warning("⚠️ Tidak ada baris data valid yang dapat diimpor dari file tersebut.")
+        return
+
+    preview_df = pd.DataFrame(parsed_rows)
+    st.success(
+        f"✅ Berhasil membaca **{len(parsed_rows)} baris** valid dari sheet **`{used_sheet}`**"
+        + (f" ({skipped_empty} baris kosong dilewati)." if skipped_empty else ".")
+    )
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Baris Siap Import", len(preview_df))
+    m2.metric("Jumlah Promotor Unik", preview_df["nama_promotor"].nunique())
+    m3.metric("Total Omset (Bungkus)", f"{int(preview_df['omset_bungkus'].sum()):,}")
+
+    st.markdown("#### 👁️ Preview Data yang Akan Masuk ke Web App")
+    st.dataframe(preview_df, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.markdown("#### ⚙️ Pengaturan Import")
+    import_mode = st.radio(
+        "Pilih Mode Penyimpanan:",
+        [
+            "Lewati Duplikat (Cek Tanggal + Nama Promotor + Brand)",
+            "Tambah Semua Baris (Append ke Data Lama)",
+            "Timpa Semua Data Lama (Replace All)",
+        ],
+        index=0,
+        key="excel_import_mode",
+    )
+
+    sync_sheets = st.checkbox(
+        "Sinkronkan otomatis ke Google Sheets (DataKanvasAksara) setelah import",
+        value=True,
+        key="excel_sync_sheets",
+    )
+
+    confirm_replace = True
+    if "Replace All" in import_mode:
+        confirm_replace = st.checkbox(
+            "⚠️ Saya yakin ingin menghapus seluruh data kanvas lama dan menggantinya dengan isi Excel ini.",
+            key="confirm_excel_replace_all",
+        )
+
+    if st.button("🚀 Proses & Sambungkan ke Data Web App", type="primary", disabled=not confirm_replace):
+        insert_cols = ["tanggal", "nama_promotor", "zona", "brand", *FIELD_LABELS.keys(), "waktu_submit"]
+        inserted_count = 0
+        skipped_dup = 0
+
+        with _get_db_connection() as conn:
+            if "Replace All" in import_mode:
+                conn.execute("DELETE FROM kanvas")
+                conn.execute("DELETE FROM sqlite_sequence WHERE name='kanvas'")
+
+            existing_keys = set()
+            if "Lewati Duplikat" in import_mode:
+                cur = conn.execute("SELECT tanggal, nama_promotor, brand FROM kanvas")
+                existing_keys = {
+                    (str(r[0]).strip(), str(r[1]).strip(), str(r[2]).strip())
+                    for r in cur.fetchall()
+                }
+
+            batch_values = []
+            for rec in parsed_rows:
+                key_tuple = (rec["tanggal"], rec["nama_promotor"], rec["brand"])
+                if "Lewati Duplikat" in import_mode and key_tuple in existing_keys:
+                    skipped_dup += 1
+                    continue
+                existing_keys.add(key_tuple)
+                batch_values.append([rec[col] for col in insert_cols])
+
+            if batch_values:
+                conn.executemany(
+                    f"INSERT INTO kanvas ({', '.join(insert_cols)}) "
+                    f"VALUES ({', '.join('?' for _ in insert_cols)})",
+                    batch_values,
+                )
+                inserted_count = len(batch_values)
+
+        _invalidate_data_caches()
+        st.session_state["admin_initial_restore_done"] = True
+
+        msg_detail = f"🎉 Berhasil mengimpor **{inserted_count} baris** ke database web app"
+        if skipped_dup:
+            msg_detail += f" ({skipped_dup} baris duplikat dilewati)"
+        msg_detail += "."
+
+        if sync_sheets:
+            try:
+                with st.spinner("Menyinkronkan data terbaru ke Google Sheets..."):
+                    auto_backup_kanvas_to_sheets()
+                st.session_state["notifikasi_sukses"] = f"{msg_detail} Sinkronisasi Google Sheets berhasil!"
+            except RuntimeError as backup_err:
+                st.session_state["notifikasi_error"] = (
+                    f"{msg_detail} Namun sinkronisasi Google Sheets gagal: {backup_err}"
+                )
+        else:
+            st.session_state["notifikasi_sukses"] = msg_detail
+
+        st.rerun()
+
+
 init_db()
 
 now = datetime.now(TZ_WIB)
@@ -3077,6 +3287,7 @@ if is_admin:
     else:
         menu = st.sidebar.radio("Sub-Menu Laporan Kanvas:", [
             "Form Entry Laporan Kanvas",
+            "Upload Responses Excel",
             "Dashboard Pencapaian (Leaderboard)",
             "Manajemen Data (Edit, Unduh, & Hapus)",
             "Rekapitulasi Harian & Mingguan (Report Table)",
@@ -3130,6 +3341,9 @@ if menu == "Form Entry Laporan Kanvas":
     st.markdown("---")
     daily_status(load_data(), today)
 
+elif menu == "Upload Responses Excel" and is_admin:
+    upload_responses_excel_page()
+
 elif menu in ("Edit Laporan", "Manajemen Data (Edit, Unduh, & Hapus)"):
     management_page(
         load_data(),
@@ -3159,3 +3373,4 @@ elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)" and is_admin:
 
 elif menu == "Backup & Restore Google Sheets" and is_admin:
     backup_restore_page(load_data())
+```[cite: 1]
