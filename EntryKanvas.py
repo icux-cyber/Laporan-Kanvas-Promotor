@@ -3373,4 +3373,3 @@ elif menu == "Panel Admin & Log Laporan Kanvas (Semua Data)" and is_admin:
 
 elif menu == "Backup & Restore Google Sheets" and is_admin:
     backup_restore_page(load_data())
-```[cite: 1]
